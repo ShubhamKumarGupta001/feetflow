@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Role": {
@@ -384,75 +385,11 @@
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Stores individual user profiles, including email and a reference to their primary role. Access is path-based, meaning a user can only read/write their own document.",
+          "description": "Stores individual user profiles.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier of the user, matching `request.auth.uid`."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/static_roles/{roleId}",
-        "definition": {
-          "entityName": "Role",
-          "schema": {
-            "$ref": "#/backend/entities/Role"
-          },
-          "description": "A read-only collection containing definitions of the various roles (e.g., Fleet Manager, Dispatcher) and their general access scopes. Used for metadata and UI display.",
-          "params": [
-            {
-              "name": "roleId",
-              "description": "The unique identifier for a specific role."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/roles_fleetManagers/{userId}",
-        "definition": {
-          "entityName": "Role",
-          "schema": {
-            "$ref": "#/backend/entities/Role"
-          },
-          "description": "Dedicated collection for Fleet Managers. The existence of a document here with `userId` as its ID grants 'Fleet Manager' permissions. This provides authorization independence for security rules.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user who is a Fleet Manager."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/roles_dispatchers/{userId}",
-        "definition": {
-          "entityName": "Role",
-          "schema": {
-            "$ref": "#/backend/entities/Role"
-          },
-          "description": "Dedicated collection for Dispatchers. The existence of a document here with `userId` as its ID grants 'Dispatcher' permissions. This provides authorization independence for security rules.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user who is a Dispatcher."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/roles_safetyOfficers/{userId}",
-        "definition": {
-          "entityName": "Role",
-          "schema": {
-            "$ref": "#/backend/entities/Role"
-          },
-          "description": "Dedicated collection for Safety Officers. The existence of a document here with `userId` as its ID grants 'Safety Officer' permissions. This provides authorization independence for security rules.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user who is a Safety Officer."
+              "description": "The unique identifier of the user."
             }
           ]
         }
@@ -464,75 +401,11 @@
           "schema": {
             "$ref": "#/backend/entities/Role"
           },
-          "description": "Dedicated collection for Financial Analysts. The existence of a document here with `userId` as its ID grants 'Financial Analyst' permissions. This provides authorization independence for security rules.",
+          "description": "Financial Analyst role collection. Existence of UID grants access to financial modules.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier of the user who is a Financial Analyst."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/vehicles/{vehicleId}",
-        "definition": {
-          "entityName": "Vehicle",
-          "schema": {
-            "$ref": "#/backend/entities/Vehicle"
-          },
-          "description": "Stores details for all fleet vehicles. Access is based on the user's role (Fleet Manager, Dispatcher, Safety Officer) as defined in the dedicated role collections, ensuring homogeneous security posture and secure list operations.",
-          "params": [
-            {
-              "name": "vehicleId",
-              "description": "The unique identifier for a vehicle."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/drivers/{driverId}",
-        "definition": {
-          "entityName": "Driver",
-          "schema": {
-            "$ref": "#/backend/entities/Driver"
-          },
-          "description": "Contains information about all drivers. Access is determined by the user's role (Fleet Manager, Dispatcher, Safety Officer), enabling secure and efficient list queries across the entire collection.",
-          "params": [
-            {
-              "name": "driverId",
-              "description": "The unique identifier for a driver."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/trips/{tripId}",
-        "definition": {
-          "entityName": "Trip",
-          "schema": {
-            "$ref": "#/backend/entities/Trip"
-          },
-          "description": "Records all dispatch journeys. Access is managed by the user's role (Fleet Manager, Dispatcher). This collection has a homogeneous security posture, allowing secure list operations. Complex validation logic for `vehicleStatus` and `driverStatus` is handled at the application layer/Cloud Functions, not directly by Firestore rules.",
-          "params": [
-            {
-              "name": "tripId",
-              "description": "The unique identifier for a trip."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/maintenance_logs/{maintenanceLogId}",
-        "definition": {
-          "entityName": "MaintenanceLog",
-          "schema": {
-            "$ref": "#/backend/entities/MaintenanceLog"
-          },
-          "description": "Logs all vehicle maintenance activities. Access is role-based (Fleet Manager) for the entire collection, ensuring secure list queries.",
-          "params": [
-            {
-              "name": "maintenanceLogId",
-              "description": "The unique identifier for a maintenance log entry."
+              "description": "The unique identifier of the user."
             }
           ]
         }
@@ -544,11 +417,11 @@
           "schema": {
             "$ref": "#/backend/entities/FuelLog"
           },
-          "description": "Tracks fuel consumption for vehicles. Access is restricted by role (Fleet Manager, Financial Analyst) for the entire collection, supporting secure list operations.",
+          "description": "Tracks fuel consumption. Fleet Managers and Financial Analysts have management rights.",
           "params": [
             {
               "name": "fuelLogId",
-              "description": "The unique identifier for a fuel log entry."
+              "description": "The unique identifier for a fuel log."
             }
           ]
         }
@@ -560,16 +433,16 @@
           "schema": {
             "$ref": "#/backend/entities/Expense"
           },
-          "description": "Records general operational expenses related to vehicles. Access is governed by roles (Fleet Manager, Financial Analyst), allowing for secure and efficient listing of all expenses.",
+          "description": "Records general expenses. Fleet Managers and Financial Analysts have management rights.",
           "params": [
             {
               "name": "expenseId",
-              "description": "The unique identifier for an expense entry."
+              "description": "The unique identifier for an expense."
             }
           ]
         }
       }
     ],
-    "reasoning": "The FleetFlow Firestore structure is designed to adhere strictly to the core design principles, prioritizing Authorization Independence and Query As Permissions (QAPs) through structural segregation and a robust Role-Based Access Control (RBAC) model.Authorization Independence is primarily achieved by implementing roles using an 'existence over content' pattern. Instead of storing a user's role ID in their 'users/{userId}' document and requiring a 'get()' operation in security rules for every access check to other collections, dedicated role collections are used (e.g., '/roles_fleetManagers/{userId}', '/roles_dispatchers/{userId}'). A user's authorization to perform an action is determined by the *existence* of a document in the relevant role collection with their UID as the document ID. This completely eliminates 'get()' calls for role lookups within rules for operational data, making authorization checks atomic, highly performant, and simple to debug. This also enables atomic creation/update operations across related documents without breaking rules, as the authorization decision is independent of the content of other documents.Structural Segregation is applied by ensuring each top-level collection holds documents with a homogeneous security posture. For example, all 'Vehicle' documents in the '/vehicles' collection have the same general access requirements (e.g., Fleet Managers can manage, Dispatchers can read for assignment). There is no mixing of 'public' and 'private' vehicles within the same collection. This directly supports QAPs: a client querying '/vehicles' can perform a simple 'list' operation, and the security rules will securely permit or deny access to the *entire collection* based on the user's role, without needing to filter results client-side or for rules to act as filters. Each collection's security rules will directly check for the existence of the user's UID in the appropriate role collections, ensuring that only authorized roles can access the data, making 'list' operations inherently secure and efficient.The `User` entity also includes `roleId` as a denormalized field. While the primary authorization method relies on dedicated role collections for atomic rule checks, this field provides client-side context for UI rendering and can serve as a fallback or secondary validation mechanism. For the `User` document itself, access is path-based: `users/{userId}` ensures a user can only read/write their own profile.Operational data such as `Vehicles`, `Drivers`, `Trips`, `MaintenanceLogs`, `FuelLogs`, and `Expenses` are treated as organizational assets. Their access is determined solely by the user's role within the organization, not by individual user ownership of specific documents. This eliminates the need for `ownerId` or `members` maps on these documents and further simplifies security rules."
+    "reasoning": "Standard RBAC structure leveraging role-based collections for authorization independence."
   }
 }

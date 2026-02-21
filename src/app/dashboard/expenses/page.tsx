@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -6,7 +7,8 @@ import {
   useFirestore, 
   useMemoFirebase, 
   setDocumentNonBlocking,
-  useUser
+  useUser,
+  useDoc
 } from '@/firebase';
 import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -54,6 +56,11 @@ export default function TripExpensePage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   
+  // Authorization check for Financial Analyst or Fleet Manager
+  const userRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
+  const { data: userProfile } = useDoc(userRef);
+  const canManageExpenses = userProfile?.roleId === 'fleet-manager' || userProfile?.roleId === 'financial-analyst';
+
   const [formData, setFormData] = useState({
     tripId: '',
     fuelCost: '',
@@ -132,7 +139,6 @@ export default function TripExpensePage() {
       const tripMisc = expenses?.filter(e => e.tripId === trip.id || (e.vehicleId === trip.vehicleId && e.date >= trip.dispatchDate && (!trip.completionDate || e.date <= trip.completionDate)))
         .reduce((sum, e) => sum + (Number(e.amount) || 0), 0) || 0;
 
-      // Add Maintenance/Repair Costs if they occurred during this trip timeframe
       const tripMaint = maintenance?.filter(m => m.vehicleId === trip.vehicleId && m.date >= trip.dispatchDate && (!trip.completionDate || m.date <= trip.completionDate))
         .reduce((sum, m) => sum + (Number(m.cost) || 0), 0) || 0;
 
@@ -150,7 +156,6 @@ export default function TripExpensePage() {
     });
   }, [trips, fuelLogs, expenses, drivers, maintenance]);
 
-  // Wallet Summary Math
   const walletStats = useMemo(() => {
     const totalFleetSpend = tripExpenses.reduce((sum, t) => sum + t.totalCost, 0);
     const vehicleSpending: Record<string, number> = {};
@@ -176,95 +181,96 @@ export default function TripExpensePage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold font-headline text-slate-900 uppercase tracking-tighter italic">Fleet Digital Wallet</h2>
-          <p className="text-slate-500 font-medium">Tracking exactly how much money is spent to keep vehicles moving.</p>
+          <p className="text-slate-500 font-medium italic">Role: {userProfile?.roleId === 'financial-analyst' ? 'Financial Analyst (Full Access)' : 'Standard View'}</p>
         </div>
         <div className="flex items-center gap-3">
-          <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90 text-white rounded-xl h-12 px-8 font-bold shadow-lg shadow-primary/20 transition-all active:scale-95 uppercase tracking-tighter font-headline">
-                <Plus className="w-5 h-5 mr-2" /> Log Expense
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[450px] rounded-[2rem] border-none shadow-2xl p-8 bg-white">
-              <DialogHeader className="pb-4 border-b">
-                <DialogTitle className="text-2xl font-black font-headline text-primary uppercase tracking-tighter">Digital Receipt</DialogTitle>
-                <DialogDescription className="font-medium text-slate-500">Record fuel liters and repair costs per asset.</DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-6 py-6 font-body">
-                <div className="grid gap-2">
-                  <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-[0.2em] font-headline">Select Asset/Trip ID</Label>
-                  <Select value={formData.tripId} onValueChange={(val) => setFormData({...formData, tripId: val})}>
-                    <SelectTrigger className="rounded-2xl h-12 bg-slate-50 border-slate-200">
-                      <SelectValue placeholder="Trip ID Reference" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {trips?.map(t => (
-                        <SelectItem key={t.id} value={t.id}>{t.id} ({t.vehicleId})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+          {canManageExpenses && (
+            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-primary hover:bg-primary/90 text-white rounded-xl h-12 px-8 font-bold shadow-lg shadow-primary/20 transition-all active:scale-95 uppercase tracking-tighter font-headline">
+                  <Plus className="w-5 h-5 mr-2" /> Log Expense
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[450px] rounded-[2rem] border-none shadow-2xl p-8 bg-white">
+                <DialogHeader className="pb-4 border-b">
+                  <DialogTitle className="text-2xl font-black font-headline text-primary uppercase tracking-tighter">Digital Receipt</DialogTitle>
+                  <DialogDescription className="font-medium text-slate-500 font-body">Attach operational costs (Fuel/Repair) to a specific trip ID.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-6 py-6 font-body">
                   <div className="grid gap-2">
-                    <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-[0.2em] font-headline">Fuel Liters</Label>
+                    <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-[0.2em] font-headline">Select Asset/Trip ID</Label>
+                    <Select value={formData.tripId} onValueChange={(val) => setFormData({...formData, tripId: val})}>
+                      <SelectTrigger className="rounded-2xl h-12 bg-slate-50 border-slate-200">
+                        <SelectValue placeholder="Trip ID Reference" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {trips?.map(t => (
+                          <SelectItem key={t.id} value={t.id}>{t.id} ({t.vehicleId})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-[0.2em] font-headline">Fuel Liters</Label>
+                      <div className="relative">
+                        <Activity className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <Input 
+                          type="number" 
+                          placeholder="Liters" 
+                          value={formData.fuelLiters}
+                          onChange={(e) => setFormData({...formData, fuelLiters: e.target.value})}
+                          className="pl-12 rounded-2xl h-12 bg-slate-50 border-slate-200"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-[0.2em] font-headline">Fuel Cost (PKR)</Label>
+                      <div className="relative">
+                        <Fuel className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <Input 
+                          type="number" 
+                          placeholder="Cost" 
+                          value={formData.fuelCost}
+                          onChange={(e) => setFormData({...formData, fuelCost: e.target.value})}
+                          className="pl-12 rounded-2xl h-12 bg-slate-50 border-slate-200"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-[0.2em] font-headline">Misc / Repair Bill (PKR)</Label>
                     <div className="relative">
-                      <Activity className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <Wallet className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <Input 
                         type="number" 
-                        placeholder="Liters" 
-                        value={formData.fuelLiters}
-                        onChange={(e) => setFormData({...formData, fuelLiters: e.target.value})}
+                        placeholder="Amount" 
+                        value={formData.miscExpense}
+                        onChange={(e) => setFormData({...formData, miscExpense: e.target.value})}
                         className="pl-12 rounded-2xl h-12 bg-slate-50 border-slate-200"
                       />
                     </div>
                   </div>
                   <div className="grid gap-2">
-                    <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-[0.2em] font-headline">Fuel Cost (PKR)</Label>
-                    <div className="relative">
-                      <Fuel className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <Input 
-                        type="number" 
-                        placeholder="Cost" 
-                        value={formData.fuelCost}
-                        onChange={(e) => setFormData({...formData, fuelCost: e.target.value})}
-                        className="pl-12 rounded-2xl h-12 bg-slate-50 border-slate-200"
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-[0.2em] font-headline">Misc / Repair Bill (PKR)</Label>
-                  <div className="relative">
-                    <Wallet className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-[0.2em] font-headline">Details</Label>
                     <Input 
-                      type="number" 
-                      placeholder="Amount" 
-                      value={formData.miscExpense}
-                      onChange={(e) => setFormData({...formData, miscExpense: e.target.value})}
-                      className="pl-12 rounded-2xl h-12 bg-slate-50 border-slate-200"
+                      placeholder="e.g. Tolls, Oil Refill, Brake Repair"
+                      value={formData.description}
+                      onChange={(e) => setFormData({...formData, description: e.target.value})}
+                      className="rounded-2xl h-12 bg-slate-50 border-slate-200"
                     />
                   </div>
                 </div>
-                <div className="grid gap-2">
-                  <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-[0.2em] font-headline">Details</Label>
-                  <Input 
-                    placeholder="e.g. Tolls, Oil Refill, Brake Repair"
-                    value={formData.description}
-                    onChange={(e) => setFormData({...formData, description: e.target.value})}
-                    className="rounded-2xl h-12 bg-slate-50 border-slate-200"
-                  />
-                </div>
-              </div>
-              <DialogFooter className="flex gap-4 pt-4 border-t">
-                <Button onClick={handleCreateExpense} className="flex-1 bg-primary hover:bg-primary/90 text-white rounded-2xl h-14 font-black uppercase text-sm tracking-widest shadow-xl shadow-primary/20 font-headline">Update Ledger</Button>
-                <Button variant="outline" onClick={() => setIsModalOpen(false)} className="flex-1 rounded-2xl h-14 font-bold border-2 border-slate-100 text-slate-400 hover:text-red-500 hover:border-red-100 transition-all font-headline">Discard</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                <DialogFooter className="flex gap-4 pt-4 border-t">
+                  <Button onClick={handleCreateExpense} className="flex-1 bg-primary hover:bg-primary/90 text-white rounded-2xl h-14 font-black uppercase text-sm tracking-widest shadow-xl shadow-primary/20 font-headline">Update Ledger</Button>
+                  <Button variant="outline" onClick={() => setIsModalOpen(false)} className="flex-1 rounded-2xl h-14 font-bold border-2 border-slate-100 text-slate-400 hover:text-red-500 hover:border-red-100 transition-all font-headline">Discard</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </div>
 
-      {/* Wallet Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <Card className="border-2 border-primary/10 shadow-sm rounded-3xl bg-white overflow-hidden group">
           <CardContent className="p-8 flex flex-col items-center text-center space-y-3">
@@ -299,10 +305,10 @@ export default function TripExpensePage() {
           <CardContent className="p-8 flex flex-col justify-center h-full space-y-4">
             <div className="flex items-center gap-3">
               <Database className="w-5 h-5 text-accent" />
-              <p className="text-[10px] font-black uppercase tracking-widest font-headline">System Intelligence</p>
+              <p className="text-[10px] font-black uppercase tracking-widest font-headline">Financial Analytics Enabled</p>
             </div>
             <p className="text-sm font-medium leading-relaxed opacity-90 italic">
-              "Total Cost" helps identify if a specific truck is becoming too expensive to keep.
+              Financial Analysts can monitor ROI and log operational expenses to maintain ledger accuracy.
             </p>
           </CardContent>
         </Card>
@@ -368,7 +374,7 @@ export default function TripExpensePage() {
                     <TableCell>
                       <div className="flex flex-col">
                         <span className="font-black text-slate-900 text-base italic font-headline">Rs. {(trip.miscCost + trip.maintCost).toLocaleString()}</span>
-                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Maintenance & Repairs</span>
+                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Maintenance &amp; Repairs</span>
                       </div>
                     </TableCell>
                     <TableCell className="pr-10 text-right">
@@ -390,7 +396,7 @@ export default function TripExpensePage() {
                       </div>
                       <div className="space-y-2">
                         <h3 className="text-xl font-black font-headline text-slate-900 uppercase tracking-tighter">Wallet Empty</h3>
-                        <p className="text-slate-400 font-medium max-w-xs mx-auto text-sm">No expenses have been connected to active vehicles yet.</p>
+                        <p className="text-slate-400 font-medium max-w-xs mx-auto text-sm font-body">No expenses have been connected to active vehicles yet.</p>
                       </div>
                     </div>
                   </TableCell>

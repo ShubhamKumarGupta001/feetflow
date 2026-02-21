@@ -1,18 +1,3 @@
-/**
- * FleetFlow Security Rules
- * 
- * Core Philosophy:
- * This ruleset implements a robust Role-Based Access Control (RBAC) model based on 
- * "Authorization Independence." Instead of checking a user's role within their own profile
- * (which requires a costly `get()` call), authorization is determined by the existence 
- * of the user's UID within specialized role-based collections (e.g., /roles_fleetManagers/{userId}).
- * 
- * Key Security Decisions:
- * - Read Access (Get/List): All authenticated users can read organizational assets 
- *   (Trips, Vehicles, etc.) to ensure a smooth UI experience and support list operations.
- * - Write Access (Create/Update/Delete): Enforced by Role membership. 
- *   Only Fleet Managers can manage vehicles; Dispatchers/Managers manage trips.
- */
 
 rules_version = '2';
 service cloud.firestore {
@@ -32,7 +17,6 @@ service cloud.firestore {
       return isSignedIn() && exists(/databases/$(database)/documents/$(roleCollection)/$(request.auth.uid));
     }
 
-    // Role-Specific Helpers
     function isFleetManager() { return hasRole('roles_fleetManagers'); }
     function isDispatcher() { return hasRole('roles_dispatchers'); }
     function isSafetyOfficer() { return hasRole('roles_safetyOfficers'); }
@@ -47,8 +31,8 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isOwner(userId);
       allow list: if false; 
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isOwner(userId) && documentExists() && request.resource.data.id == resource.data.id;
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
       allow delete: if false;
     }
 
@@ -67,8 +51,6 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
-    // Operational Collections: Broad Read (for all authenticated staff), Strict Write
-    
     match /vehicles/{vehicleId} {
       allow get, list: if isSignedIn();
       allow create: if isFleetManager();
@@ -97,14 +79,14 @@ service cloud.firestore {
 
     match /fuel_logs/{logId} {
       allow get, list: if isSignedIn();
-      allow create: if isFleetManager();
-      allow update, delete: if isFleetManager() && documentExists();
+      allow create: if isFleetManager() || isFinancialAnalyst();
+      allow update, delete: if (isFleetManager() || isFinancialAnalyst()) && documentExists();
     }
 
     match /expenses/{expenseId} {
       allow get, list: if isSignedIn();
-      allow create: if isFleetManager();
-      allow update, delete: if isFleetManager() && documentExists();
+      allow create: if isFleetManager() || isFinancialAnalyst();
+      allow update, delete: if (isFleetManager() || isFinancialAnalyst()) && documentExists();
     }
   }
 }
