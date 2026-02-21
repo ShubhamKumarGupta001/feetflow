@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Truck, Loader2, ShieldCheck, AlertCircle, Info } from 'lucide-react';
+import { Truck, Loader2, ShieldCheck, AlertCircle, Info, Mail } from 'lucide-react';
 import { useAuth, useFirestore, setDocumentNonBlocking } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc } from 'firebase/firestore';
@@ -98,7 +98,7 @@ export default function RegisterPage() {
         <CardHeader className="space-y-2 pb-8 pt-8 text-center">
           <CardTitle className="text-2xl font-bold font-headline">Join FleetFlow</CardTitle>
           <CardDescription className="text-slate-500">
-            Automated role-based onboarding for logistics professionals.
+            Professional logistics workspace for high-performance teams.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -128,14 +128,18 @@ export default function RegisterPage() {
               />
             </div>
 
-            <div className="flex items-start gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
-              <Info className="w-5 h-5 text-primary mt-0.5 shrink-0" />
-              <div className="space-y-1">
-                <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">Automated Onboarding</p>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Our system will automatically provision your dashboard and access keys based on your organizational identity.
-                </p>
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
+              <div className="flex items-center gap-2 text-primary">
+                <ShieldCheck className="w-5 h-5" />
+                <span className="text-xs font-black uppercase tracking-widest">Automatic Provisioning</span>
               </div>
+              <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
+                Our system assigns workspace roles based on your verified professional identity. 
+                Use keywords like <span className="text-slate-900 font-bold italic">dispatch</span>, 
+                <span className="text-slate-900 font-bold italic">safety</span>, or 
+                <span className="text-slate-900 font-bold italic">finance</span> in your email for specialized access. 
+                Standard professional emails default to <span className="text-slate-900 font-bold">Fleet Manager</span>.
+              </p>
             </div>
 
             {error && (
