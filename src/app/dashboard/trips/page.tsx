@@ -33,10 +33,6 @@ import {
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 
-/**
- * Trip Dispatcher Module
- * Handles real-time assignment of assets to journeys.
- */
 export default function TripsPage() {
   const { user } = useUser();
   const firestore = useFirestore();
@@ -51,11 +47,9 @@ export default function TripsPage() {
     estimatedFuelCost: ''
   });
 
-  // 1. Authorization Gating
   const userRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
 
-  // 2. Real-time Subscriptions to Dependencies (Vehicles, Drivers, Trips)
   const vRef = useMemoFirebase(() => collection(firestore, 'vehicles'), [firestore]);
   const dRef = useMemoFirebase(() => collection(firestore, 'drivers'), [firestore]);
   const tRef = useMemoFirebase(() => collection(firestore, 'trips'), [firestore]);
@@ -66,7 +60,6 @@ export default function TripsPage() {
 
   const isLoading = isProfileLoading || isVehiclesLoading || isDriversLoading || isTripsLoading;
 
-  // 3. Dispatch Mutation Logic
   const handleDispatch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.vehicleId || !formData.driverId) return;
@@ -74,18 +67,11 @@ export default function TripsPage() {
     const vehicle = vehicles?.find(v => v.id === formData.vehicleId);
     const driver = drivers?.find(d => d.id === formData.driverId);
 
-    // Safety Checks
     if (Number(formData.cargoWeightKg) > (vehicle?.maxCapacityKg || 0)) {
       toast({ variant: "destructive", title: "Overload Detected", description: "Cargo exceeds vehicle payload capacity." });
       return;
     }
 
-    if (driver?.status !== 'On Duty' && driver?.status !== 'Available') {
-      toast({ variant: "destructive", title: "Operator Unavailable", description: "The selected driver is currently not in active duty status." });
-      return;
-    }
-
-    // A. Create Trip Record
     const tripId = `TRIP-${Math.floor(1000 + Math.random() * 9000)}`;
     addDocumentNonBlocking(tRef!, {
       id: tripId,
@@ -98,15 +84,13 @@ export default function TripsPage() {
       createdAt: serverTimestamp()
     });
 
-    // B. Update Asset & Operator Statuses Atomically
     const vehicleRef = doc(firestore, 'vehicles', formData.vehicleId);
     updateDocumentNonBlocking(vehicleRef, { status: 'On Trip' });
 
     const driverRef = doc(firestore, 'drivers', formData.driverId);
     updateDocumentNonBlocking(driverRef, { status: 'On Trip' });
 
-    toast({ title: "Dispatch Confirmed", description: `${tripId} is now active and tracked.` });
-
+    toast({ title: "Dispatch Confirmed", description: `${tripId} is now active.` });
     setFormData({ vehicleId: '', driverId: '', cargoWeightKg: '', origin: '', destination: '', estimatedFuelCost: '' });
   };
 
@@ -128,7 +112,6 @@ export default function TripsPage() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        {/* Real-time Trip Monitor */}
         <Card className="xl:col-span-2 border-none shadow-sm overflow-hidden bg-white">
           <CardHeader className="p-6 bg-white border-b flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="relative w-full sm:w-96">
@@ -153,9 +136,9 @@ export default function TripsPage() {
               <Table>
                 <TableHeader className="bg-slate-50/50">
                   <TableRow className="border-none">
-                    <TableHead className="w-[80px] h-14 pl-8 text-xs font-bold uppercase text-slate-400">ID</TableHead>
+                    <TableHead className="w-[120px] h-14 pl-8 text-xs font-bold uppercase text-slate-400">ID</TableHead>
                     <TableHead className="h-14 text-xs font-bold uppercase text-slate-400">Route Map</TableHead>
-                    <TableHead className="h-14 text-xs font-bold uppercase text-slate-400">Assigned Asset</TableHead>
+                    <TableHead className="h-14 text-xs font-bold uppercase text-slate-400 text-center">Assigned Asset</TableHead>
                     <TableHead className="h-14 pr-8 text-right text-xs font-bold uppercase text-slate-400">Journey State</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -164,9 +147,11 @@ export default function TripsPage() {
                     const vehicle = vehicles?.find(v => v.id === trip.vehicleId);
                     return (
                       <TableRow key={trip.id} className="h-16 border-slate-100 hover:bg-slate-50/50 transition-colors">
-                        <TableCell className="pl-8 font-black text-primary/70">{trip.id}</TableCell>
+                        <TableCell className="pl-8 font-black text-primary/70 text-xs">{trip.id}</TableCell>
                         <TableCell className="font-bold text-slate-900">{trip.origin} → {trip.destination}</TableCell>
-                        <TableCell className="font-medium text-slate-500">{vehicle?.name || 'N/A'}</TableCell>
+                        <TableCell className="font-bold text-slate-700 text-center">
+                          {vehicle ? `${vehicle.name} (${vehicle.licensePlate})` : 'N/A'}
+                        </TableCell>
                         <TableCell className="pr-8 text-right">
                           <Badge className={`rounded-full px-3 py-0.5 font-bold border-none ${
                             trip.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 
@@ -192,7 +177,6 @@ export default function TripsPage() {
           </CardContent>
         </Card>
 
-        {/* Dispatch Form: Persistence Engine */}
         <Card className="border-none shadow-sm bg-white overflow-hidden">
           <CardHeader className="border-b bg-primary/5">
             <CardTitle className="text-xl font-bold font-headline uppercase tracking-tighter text-primary">Deployment Hub</CardTitle>

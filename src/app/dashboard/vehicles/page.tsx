@@ -6,7 +6,7 @@ import {
   useCollection, 
   useFirestore, 
   useMemoFirebase, 
-  addDocumentNonBlocking,
+  setDocumentNonBlocking,
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
   useUser,
@@ -41,11 +41,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 
-/**
- * Vehicle Registry Module
- * Central asset database where fleet managers manage the lifecycle of vehicles.
- * Supports real-time editing of asset details and operational status.
- */
 export default function VehiclesPage() {
   const { user } = useUser();
   const firestore = useFirestore();
@@ -63,28 +58,25 @@ export default function VehiclesPage() {
     status: 'Available'
   });
 
-  // 1. Authorization Gating
   const userRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
 
   const canManage = userProfile?.roleId === 'fleet-manager';
 
-  // 2. Real-time Subscription to Vehicle Assets
   const vehiclesRef = useMemoFirebase(() => collection(firestore, 'vehicles'), [firestore]);
   const { data: vehicles, isLoading: isCollectionLoading } = useCollection(vehiclesRef);
 
   const isLoading = isProfileLoading || isCollectionLoading;
 
-  // 3. Search Filter Logic
   const filteredVehicles = useMemo(() => {
     return vehicles?.filter(v => 
       v.licensePlate?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       v.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      v.name?.toLowerCase().includes(searchTerm.toLowerCase())
+      v.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      v.id?.toLowerCase().includes(searchTerm.toLowerCase())
     ) || [];
   }, [vehicles, searchTerm]);
 
-  // 4. Open Modal for Edit
   const handleEdit = (vehicle: any) => {
     setEditingVehicle(vehicle);
     setFormData({
@@ -99,56 +91,42 @@ export default function VehiclesPage() {
     setIsModalOpen(true);
   };
 
-  // 5. Reset Form
   const resetForm = () => {
     setFormData({ licensePlate: '', maxCapacityKg: '', odometerKm: '', type: '', model: '', name: '', status: 'Available' });
     setEditingVehicle(null);
   };
 
-  // 6. Mutation: Save (Create or Update) Asset
   const handleSave = () => {
     if (!formData.licensePlate || !formData.model) {
       toast({ variant: "destructive", title: "Validation Error", description: "Plate and Model are required." });
       return;
     }
 
-    if (editingVehicle) {
-      // Update existing document
-      const docRef = doc(firestore, 'vehicles', editingVehicle.id);
-      updateDocumentNonBlocking(docRef, {
-        licensePlate: formData.licensePlate.toUpperCase(),
-        maxCapacityKg: Number(formData.maxCapacityKg),
-        odometerKm: Number(formData.odometerKm),
-        type: formData.type,
-        model: formData.model,
-        name: formData.name || `Asset-${formData.licensePlate}`,
-        status: formData.status
-      });
-      toast({ title: "Asset Updated", description: `${formData.licensePlate} specs have been successfully modified.` });
-    } else {
-      // Create new document
-      const vehicleId = formData.licensePlate.toUpperCase();
-      const vehicleName = formData.name || `Asset-${formData.licensePlate}`;
+    const vehicleId = formData.licensePlate.toUpperCase().replace(/\s+/g, '-');
+    const vehicleName = formData.name || `Asset-${formData.licensePlate}`;
+    const targetDocRef = doc(firestore, 'vehicles', vehicleId);
 
-      addDocumentNonBlocking(vehiclesRef, {
-        id: vehicleId,
-        ...formData,
-        name: vehicleName,
-        licensePlate: formData.licensePlate.toUpperCase(),
-        maxCapacityKg: Number(formData.maxCapacityKg),
-        odometerKm: Number(formData.odometerKm),
-        acquisitionCost: 0,
-        status: 'Available',
-        region: 'Central',
-      });
-      toast({ title: "Asset Registered", description: `${vehicleName} added to inventory.` });
-    }
+    setDocumentNonBlocking(targetDocRef, {
+      id: vehicleId,
+      ...formData,
+      name: vehicleName,
+      licensePlate: formData.licensePlate.toUpperCase(),
+      maxCapacityKg: Number(formData.maxCapacityKg),
+      odometerKm: Number(formData.odometerKm),
+      acquisitionCost: editingVehicle?.acquisitionCost || 0,
+      region: editingVehicle?.region || 'Central',
+      status: formData.status
+    }, { merge: true });
+
+    toast({ 
+      title: editingVehicle ? "Asset Updated" : "Asset Registered", 
+      description: `${vehicleName} has been synchronized with the registry.` 
+    });
 
     resetForm();
     setIsModalOpen(false);
   };
 
-  // 7. Mutation: Retire Asset
   const handleDelete = (id: string) => {
     const docRef = doc(firestore, 'vehicles', id);
     deleteDocumentNonBlocking(docRef);
@@ -210,22 +188,20 @@ export default function VehiclesPage() {
                     <Input id="odometer" type="number" value={formData.odometerKm} onChange={(e) => setFormData({...formData, odometerKm: e.target.value})} className="rounded-xl h-12 border-slate-200" />
                   </div>
                 </div>
-                {editingVehicle && (
-                  <div className="grid gap-2 p-4 bg-primary/5 rounded-2xl border border-primary/10">
-                    <Label className="font-bold text-primary uppercase text-[10px] tracking-widest mb-2">Operational State</Label>
-                    <Select value={formData.status} onValueChange={(val) => setFormData({...formData, status: val})}>
-                      <SelectTrigger className="rounded-xl h-12 bg-white border-primary/20 shadow-sm">
-                        <SelectValue placeholder="Update Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Available">Available</SelectItem>
-                        <SelectItem value="On Trip">On Trip</SelectItem>
-                        <SelectItem value="In Shop">In Shop</SelectItem>
-                        <SelectItem value="Retired">Retired</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                <div className="grid gap-2 p-4 bg-primary/5 rounded-2xl border border-primary/10">
+                  <Label className="font-bold text-primary uppercase text-[10px] tracking-widest mb-2">Operational State</Label>
+                  <Select value={formData.status} onValueChange={(val) => setFormData({...formData, status: val})}>
+                    <SelectTrigger className="rounded-xl h-12 bg-white border-primary/20 shadow-sm">
+                      <SelectValue placeholder="Update Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Available">Available</SelectItem>
+                      <SelectItem value="On Trip">On Trip</SelectItem>
+                      <SelectItem value="In Shop">In Shop</SelectItem>
+                      <SelectItem value="Retired">Retired</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <DialogFooter className="flex gap-3 pt-4">
                 <Button onClick={handleSave} className="flex-1 bg-primary hover:bg-primary/90 rounded-2xl h-14 font-bold text-lg shadow-xl shadow-primary/20">

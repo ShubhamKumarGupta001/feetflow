@@ -6,7 +6,7 @@ import {
   useCollection, 
   useFirestore, 
   useMemoFirebase, 
-  addDocumentNonBlocking,
+  setDocumentNonBlocking,
   useUser,
   useDoc
 } from '@/firebase';
@@ -58,28 +58,15 @@ export default function PerformancePage() {
   const userRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
 
-  const roleCollection = useMemo(() => {
-    if (!userProfile?.roleId) return null;
-    const rid = userProfile.roleId;
-    if (rid === 'dispatcher') return 'roles_dispatchers';
-    if (rid === 'safety-officer') return 'roles_safetyOfficers';
-    if (rid === 'financial-analyst') return 'roles_financialAnalysts';
-    return 'roles_fleetManagers';
-  }, [userProfile]);
-
-  const roleFlagRef = useMemoFirebase(() => (user && roleCollection) ? doc(firestore, roleCollection, user.uid) : null, [firestore, user, roleCollection]);
-  const { data: roleFlag, isLoading: isRoleFlagLoading } = useDoc(roleFlagRef);
-
-  const isAuthorized = !!roleFlag;
-
-  const driversRef = useMemoFirebase(() => (!user || !isAuthorized) ? null : collection(firestore, 'drivers'), [firestore, user, isAuthorized]);
+  const driversRef = useMemoFirebase(() => collection(firestore, 'drivers'), [firestore]);
   const { data: drivers, isLoading: isDriversLoading } = useCollection(driversRef);
 
-  const isLoading = isProfileLoading || isRoleFlagLoading || isDriversLoading;
+  const isLoading = isProfileLoading || isDriversLoading;
 
   const handleCreateDriver = () => {
     if (!formData.name || !formData.licenseExpiryDate || !driversRef) return;
 
+    const driverId = formData.name.toLowerCase().replace(/\s+/g, '-');
     const expiryDate = new Date(formData.licenseExpiryDate);
     const today = new Date();
     const isExpired = expiryDate < today;
@@ -88,8 +75,8 @@ export default function PerformancePage() {
     const completed = Number(formData.completedTrips) || 0;
     const rate = total > 0 ? (completed / total) * 100 : 0;
 
-    addDocumentNonBlocking(driversRef, {
-      id: crypto.randomUUID(),
+    setDocumentNonBlocking(doc(firestore, 'drivers', driverId), {
+      id: driverId,
       ...formData,
       safetyScore: Number(formData.safetyScore),
       totalTrips: total,
@@ -98,7 +85,7 @@ export default function PerformancePage() {
       complaints: Number(formData.complaints),
       status: isExpired ? 'Suspended' : 'On Duty',
       createdAt: serverTimestamp()
-    });
+    }, { merge: true });
 
     toast({
       title: "Driver Registered",
@@ -119,15 +106,16 @@ export default function PerformancePage() {
 
   const filteredDrivers = drivers?.filter(d => 
     d.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    d.licenseCategory?.toLowerCase().includes(searchTerm.toLowerCase())
+    d.licenseCategory?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    d.id?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold font-headline text-slate-900">7. Driver Performance &amp; Safety Profiles</h2>
-          <p className="text-slate-500">Compliance &amp; Operational Efficiency Tracking</p>
+          <h2 className="text-3xl font-bold font-headline text-slate-900">7. Driver Performance & Safety Profiles</h2>
+          <p className="text-slate-500">Compliance & Operational Efficiency Tracking</p>
         </div>
       </div>
 
