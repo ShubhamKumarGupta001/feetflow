@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Truck, Loader2, ShieldCheck } from 'lucide-react';
+import { Truck, Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
 import { useAuth, useFirestore, setDocumentNonBlocking } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc } from 'firebase/firestore';
@@ -18,6 +18,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isEmailInUse, setIsEmailInUse] = useState(false);
   const router = useRouter();
   const auth = useAuth();
   const db = useFirestore();
@@ -26,9 +27,10 @@ export default function RegisterPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setIsEmailInUse(false);
     
     try {
-      // 1. Authenticate with Firebase Auth (Blocking)
+      // 1. Authenticate with Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
@@ -49,7 +51,12 @@ export default function RegisterPage() {
       // 4. Redirect immediately
       router.push('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Failed to create account. Please try again.');
+      if (err.code === 'auth/email-already-in-use') {
+        setIsEmailInUse(true);
+        setError('This email is already registered. Please sign in instead.');
+      } else {
+        setError(err.message || 'Failed to create account. Please try again.');
+      }
       setLoading(false);
     }
   };
@@ -60,7 +67,7 @@ export default function RegisterPage() {
         <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center group-hover:rotate-12 transition-transform text-white shadow-lg shadow-primary/20">
           <Truck className="w-6 h-6" />
         </div>
-        <span className="font-headline text-2xl font-bold text-primary tracking-tight text-primary">Fleet Flow</span>
+        <span className="font-headline text-2xl font-bold text-primary tracking-tight">Fleet Flow</span>
       </Link>
 
       <Card className="w-full max-w-md border-none shadow-xl bg-white rounded-2xl overflow-hidden">
@@ -106,15 +113,24 @@ export default function RegisterPage() {
             </div>
 
             {error && (
-              <p className="text-sm text-destructive font-medium bg-destructive/10 p-3 rounded-lg border border-destructive/20">
-                {error}
-              </p>
+              <div className={`p-4 rounded-xl border flex gap-3 ${isEmailInUse ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-destructive/10 border-destructive/20 text-destructive'}`}>
+                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-sm font-bold">{isEmailInUse ? 'Account Exists' : 'Registration Error'}</p>
+                  <p className="text-xs font-medium leading-relaxed">{error}</p>
+                  {isEmailInUse && (
+                    <Link href="/auth/login" className="text-xs font-bold underline block mt-2">
+                      Go to Sign In →
+                    </Link>
+                  )}
+                </div>
+              </div>
             )}
 
             <Button 
               type="submit" 
               disabled={loading}
-              className="w-full h-12 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold text-lg shadow-lg shadow-primary/20"
+              className="w-full h-12 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold text-lg shadow-lg shadow-primary/20 transition-all active:scale-95"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : "Create Account"}
             </Button>

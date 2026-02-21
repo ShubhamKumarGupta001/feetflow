@@ -5,10 +5,10 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Truck, Loader2, ArrowRight } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Truck, Loader2, ArrowRight, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 
@@ -29,7 +29,11 @@ export default function LoginPage() {
       await signInWithEmailAndPassword(auth, email, password);
       router.push('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Failed to sign in. Please check your credentials.');
+      let message = 'Failed to sign in. Please check your credentials.';
+      if (err.code === 'auth/user-not-found') message = 'No account found with this email.';
+      if (err.code === 'auth/wrong-password') message = 'Incorrect password.';
+      
+      setError(message);
       setLoading(false);
     }
   };
@@ -44,9 +48,9 @@ export default function LoginPage() {
       </Link>
 
       <Card className="w-full max-w-md border-none shadow-xl bg-white rounded-2xl overflow-hidden">
-        <CardHeader className="space-y-2 pb-8 pt-8">
-          <CardTitle className="text-2xl font-bold font-headline text-center">Welcome Back</CardTitle>
-          <CardDescription className="text-center text-slate-500">
+        <CardHeader className="space-y-2 pb-8 pt-8 text-center">
+          <CardTitle className="text-2xl font-bold font-headline">Welcome Back</CardTitle>
+          <CardDescription className="text-slate-500">
             Enter your credentials to access your fleet dashboard.
           </CardDescription>
         </CardHeader>
@@ -54,14 +58,14 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="email">Work Email</Label>
-              <input 
+              <Input 
                 id="email" 
                 type="email" 
                 placeholder="name@company.com" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="flex h-12 w-full rounded-xl bg-slate-50/50 border-slate-200 px-3 py-2 text-sm focus:bg-white transition-all focus:outline-none focus:ring-2 focus:ring-primary"
+                className="h-12 rounded-xl bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
               />
             </div>
             <div className="space-y-2">
@@ -69,27 +73,28 @@ export default function LoginPage() {
                 <Label htmlFor="password">Password</Label>
                 <Link href="#" className="text-sm text-primary font-medium hover:underline">Forgot?</Link>
               </div>
-              <input 
+              <Input 
                 id="password" 
                 type="password" 
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="flex h-12 w-full rounded-xl bg-slate-50/50 border-slate-200 px-3 py-2 text-sm focus:bg-white transition-all focus:outline-none focus:ring-2 focus:ring-primary"
+                className="h-12 rounded-xl bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
               />
             </div>
 
             {error && (
-              <p className="text-sm text-destructive font-medium bg-destructive/10 p-3 rounded-lg border border-destructive/20">
-                {error}
-              </p>
+              <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive flex gap-3">
+                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                <p className="text-xs font-bold leading-relaxed">{error}</p>
+              </div>
             )}
 
             <Button 
               type="submit" 
               disabled={loading}
-              className="w-full h-12 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold text-lg shadow-lg shadow-primary/20"
+              className="w-full h-12 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold text-lg shadow-lg shadow-primary/20 transition-all active:scale-95"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : "Sign In"}
               {!loading && <ArrowRight className="ml-2 w-5 h-5" />}
