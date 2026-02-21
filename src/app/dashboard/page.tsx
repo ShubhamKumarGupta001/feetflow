@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Search, Filter, ArrowUpDown, Plus, Truck, Wrench, Package, MoreHorizontal, Loader2 } from 'lucide-react';
+import { Search, Filter, Plus, Truck, Wrench, Package, MoreHorizontal, Loader2, ArrowUpRight } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import Link from 'next/link';
@@ -17,136 +17,122 @@ export default function DashboardPage() {
   
   const vRef = useMemoFirebase(() => collection(db, 'vehicles'), [db]);
   const tRef = useMemoFirebase(() => collection(db, 'trips'), [db]);
-  const mRef = useMemoFirebase(() => collection(db, 'maintenance_logs'), [db]);
 
   const { data: vehicles, isLoading: vLoading } = useCollection(vRef);
   const { data: trips, isLoading: tLoading } = useCollection(tRef);
-  const { data: maintenance, isLoading: mLoading } = useCollection(mRef);
 
   const stats = useMemo(() => {
     const active = vehicles?.filter(v => v.status === 'On Trip').length || 0;
     const inShop = vehicles?.filter(v => v.status === 'In Shop').length || 0;
-    const pending = trips?.filter(t => t.status === 'Dispatched' || t.status === 'Draft').length || 0;
+    const pending = trips?.filter(t => t.status === 'Dispatched').length || 0;
 
     return [
-      { title: "Active Fleet", value: active.toString(), icon: Truck, color: "text-emerald-600", bgColor: "bg-emerald-50" },
-      { title: "Maintenance Alert", value: inShop.toString(), icon: Wrench, color: "text-amber-600", bgColor: "bg-amber-50" },
-      { title: "Pending Trips", value: pending.toString(), icon: Package, color: "text-blue-600", bgColor: "bg-blue-50" }
+      { title: "Live Deployments", value: active, icon: Truck, color: "text-blue-600", bg: "bg-blue-50" },
+      { title: "Asset Maintenance", value: inShop, icon: Wrench, color: "text-amber-600", bg: "bg-amber-50" },
+      { title: "Active Logistics", value: pending, icon: Package, color: "text-emerald-600", bg: "bg-emerald-50" }
     ];
   }, [vehicles, trips]);
 
-  const recentTrips = useMemo(() => {
-    return trips?.slice(0, 5).sort((a: any, b: any) => 
-      new Date(b.dispatchDate || 0).getTime() - new Date(a.dispatchDate || 0).getTime()
-    ) || [];
-  }, [trips]);
-
-  const isLoading = vLoading || tLoading || mLoading;
+  const isLoading = vLoading || tLoading;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Top Action Bar */}
-      <div className="flex flex-col lg:flex-row items-center justify-between gap-6 bg-white p-4 rounded-2xl shadow-sm border">
-        <div className="flex flex-1 items-center gap-4 w-full lg:w-auto">
-          <div className="relative w-full lg:max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input 
-              placeholder="Search trips, vehicles..." 
-              className="pl-10 h-11 border-slate-200 bg-slate-50/50 rounded-xl w-full"
-            />
-          </div>
-          <Button variant="outline" className="h-11 rounded-xl border-slate-200 px-4">
-            <Filter className="w-4 h-4 mr-2" /> Filter
-          </Button>
+    <div className="space-y-10">
+      {/* Search and Action Bar */}
+      <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
+        <div className="relative w-full lg:max-w-xl group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-primary transition-colors" />
+          <Input 
+            placeholder="Search assets, drivers, or active routes..." 
+            className="pl-12 h-14 border-none bg-white shadow-sm rounded-2xl focus:ring-2 focus:ring-primary/20 transition-all text-lg"
+          />
         </div>
-        <div className="flex items-center gap-3 w-full lg:w-auto">
-          <Link href="/dashboard/trips">
-            <Button className="h-11 bg-primary hover:bg-primary/90 rounded-xl px-6">
-              <Plus className="w-4 h-4 mr-2" /> New Trip
-            </Button>
-          </Link>
-          <Link href="/dashboard/vehicles">
-            <Button variant="outline" className="h-11 border-primary text-primary hover:bg-primary/5 rounded-xl px-6">
-              <Plus className="w-4 h-4 mr-2" /> New Vehicle
+        <div className="flex items-center gap-4 w-full lg:w-auto">
+          <Link href="/dashboard/trips" className="flex-1 lg:flex-none">
+            <Button className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl px-8 font-bold shadow-xl shadow-primary/20 group">
+              Start New Trip <Plus className="ml-2 w-5 h-5 transition-transform group-hover:rotate-90" />
             </Button>
           </Link>
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* Hero Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {stats.map((kpi, i) => (
-          <Card key={i} className="border-none shadow-sm hover:shadow-md transition-all overflow-hidden bg-white">
-            <CardContent className="p-8 flex flex-col items-center text-center space-y-4">
-              <div className={`p-4 rounded-2xl ${kpi.bgColor} ${kpi.color}`}>
+          <Card key={i} className="border-none shadow-sm hover:shadow-2xl transition-all duration-500 rounded-3xl overflow-hidden group">
+            <CardContent className="p-8 flex items-center gap-6">
+              <div className={`p-5 rounded-2xl ${kpi.bg} ${kpi.color} transition-transform group-hover:scale-110 duration-500`}>
                 <kpi.icon className="w-8 h-8" />
               </div>
               <div>
-                <p className={`text-3xl font-bold font-headline ${kpi.color}`}>
+                <p className="text-4xl font-black font-headline text-slate-900">
                   {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : kpi.value}
                 </p>
-                <p className="text-sm font-semibold text-slate-500 mt-1 uppercase tracking-wider">{kpi.title}</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{kpi.title}</p>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Main Data Table */}
-      <Card className="border-none shadow-sm overflow-hidden bg-white">
-        <CardHeader className="px-6 py-4 border-b flex flex-row items-center justify-between">
-          <CardTitle className="text-lg font-bold font-headline">Recent Operations</CardTitle>
+      {/* Operations Table */}
+      <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
+        <CardHeader className="px-8 py-8 border-b border-slate-50 flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-xl font-black font-headline">Operational Ledger</CardTitle>
+            <p className="text-sm text-slate-400 mt-1 font-medium">Real-time tracking of active dispatch cycles</p>
+          </div>
           <Link href="/dashboard/trips">
-            <Button variant="ghost" size="sm" className="text-primary font-bold">View All</Button>
+            <Button variant="ghost" className="text-primary font-black hover:bg-primary/5 rounded-xl">
+              Explorer View <ArrowUpRight className="ml-2 w-4 h-4" />
+            </Button>
           </Link>
         </CardHeader>
         <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-primary/30" />
-            </div>
-          ) : (
-            <Table>
-              <TableHeader className="bg-slate-50/50">
-                <TableRow className="border-none">
-                  <TableHead className="w-[150px] h-14 pl-8 text-xs font-bold uppercase text-slate-500">Trip ID</TableHead>
-                  <TableHead className="h-14 text-xs font-bold uppercase text-slate-500">Route</TableHead>
-                  <TableHead className="h-14 text-xs font-bold uppercase text-slate-500">Cargo</TableHead>
-                  <TableHead className="h-14 text-xs font-bold uppercase text-slate-500 text-center">Status</TableHead>
-                  <TableHead className="h-14 pr-8 text-right text-xs font-bold uppercase text-slate-500">Action</TableHead>
+          <Table>
+            <TableHeader className="bg-slate-50/50">
+              <TableRow className="border-none">
+                <TableHead className="h-16 pl-8 text-[10px] font-black uppercase text-slate-400 tracking-widest">Identifier</TableHead>
+                <TableHead className="h-16 text-[10px] font-black uppercase text-slate-400 tracking-widest">Logistics Route</TableHead>
+                <TableHead className="h-16 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Lifecycle</TableHead>
+                <TableHead className="h-16 pr-8 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest">Dispatch Date</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {trips?.slice(0, 6).map((trip: any) => (
+                <TableRow key={trip.id} className="h-20 border-slate-50 hover:bg-slate-50/80 transition-all group">
+                  <TableCell className="pl-8">
+                    <div className="font-bold text-slate-900">#{trip.id.slice(0, 8).toUpperCase()}</div>
+                    <div className="text-[10px] font-bold text-slate-400">CARGO: {trip.cargoWeightKg}KG</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <span className="font-bold text-slate-700">{trip.origin}</span>
+                      <ArrowUpRight className="w-3 h-3 text-slate-300" />
+                      <span className="font-bold text-slate-900">{trip.destination}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge className={`rounded-full px-4 py-1.5 font-bold border-none text-[10px] tracking-widest uppercase ${
+                      trip.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 
+                      trip.status === 'Dispatched' ? 'bg-blue-100 text-blue-700' : 
+                      'bg-slate-100 text-slate-500'
+                    }`}>
+                      {trip.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="pr-8 text-right font-mono text-xs text-slate-500 font-bold">
+                    {new Date(trip.dispatchDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentTrips.map((trip: any) => (
-                  <TableRow key={trip.id} className="h-20 border-slate-100 hover:bg-slate-50/50 transition-colors">
-                    <TableCell className="pl-8 font-bold text-slate-900">{trip.id.slice(0, 8)}...</TableCell>
-                    <TableCell className="font-medium text-slate-700">{trip.origin} → {trip.destination}</TableCell>
-                    <TableCell className="font-medium text-slate-700">{trip.cargoWeightKg}kg</TableCell>
-                    <TableCell className="text-center">
-                      <Badge className={`rounded-full px-4 py-1 font-bold border-none ${
-                        trip.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 
-                        trip.status === 'Dispatched' ? 'bg-blue-100 text-blue-700' : 
-                        'bg-slate-100 text-slate-600'
-                      }`}>
-                        {trip.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="pr-8 text-right">
-                      <Button variant="ghost" size="icon" className="hover:bg-slate-100 rounded-full">
-                        <MoreHorizontal className="w-5 h-5 text-slate-400" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {recentTrips.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-12 text-slate-400 font-medium">
-                      No recent trips found. Seed demo data or start a new trip.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+              ))}
+            </TableBody>
+          </Table>
+          {!isLoading && (!trips || trips.length === 0) && (
+            <div className="py-20 text-center flex flex-col items-center">
+              <Package className="w-12 h-12 text-slate-100 mb-4" />
+              <p className="text-slate-400 font-bold">No active operations detected.</p>
+              <p className="text-xs text-slate-300 mt-1">Start a new trip to populate your command center.</p>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -19,13 +19,13 @@
     --muted-foreground: 215 16% 47%;
     --accent: 182 100% 74%;
     --accent-foreground: 222 47% 11%;
-    --destructive: 0 72% 51%; /* #DC2626 - Compliance Red */
+    --destructive: 0 72% 51%; /* #DC2626 */
     --destructive-foreground: 210 40% 98%;
     --border: 214 32% 91%;
     --input: 214 32% 91%;
     --ring: 221 83% 40%;
-    --radius: 0.75rem;
-    --sidebar-background: 222 47% 11%; /* Dark Slate for Sidebar */
+    --radius: 1rem;
+    --sidebar-background: 222 47% 11%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 221 83% 40%;
     --sidebar-primary-foreground: 0 0% 100%;
@@ -33,10 +33,6 @@
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 222 47% 20%;
     --sidebar-ring: 221 83% 40%;
-    
-    /* Custom Status Colors */
-    --success: 142 76% 36%; /* #16A34A */
-    --warning: 38 92% 50%; /* #F59E0B */
   }
 }
 
@@ -48,6 +44,14 @@
     @apply bg-background text-foreground font-body;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-headline;
+    @apply font-headline tracking-tight;
   }
+}
+
+.glass-panel {
+  @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-xl;
+}
+
+.hover-lift {
+  @apply transition-transform duration-300 hover:-translate-y-1 hover:shadow-2xl;
 }
