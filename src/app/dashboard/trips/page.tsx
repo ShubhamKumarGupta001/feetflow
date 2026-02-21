@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -28,7 +27,8 @@ import {
   Search, 
   Loader2,
   ClipboardList,
-  Navigation
+  Navigation,
+  AlertCircle
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
@@ -60,13 +60,23 @@ export default function TripsPage() {
 
   const isLoading = isProfileLoading || isVehiclesLoading || isDriversLoading || isTripsLoading;
 
+  const availableVehicles = useMemo(() => {
+    return vehicles?.filter(v => v.status === 'Available') || [];
+  }, [vehicles]);
+
+  const availableDrivers = useMemo(() => {
+    return drivers?.filter(d => d.status === 'On Duty' || d.status === 'Available') || [];
+  }, [drivers]);
+
   const handleDispatch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.vehicleId || !formData.driverId) return;
+    if (!formData.vehicleId || !formData.driverId) {
+      toast({ variant: "destructive", title: "Missing Assignment", description: "Please select both a vehicle and a driver." });
+      return;
+    }
 
     const vehicle = vehicles?.find(v => v.id === formData.vehicleId);
-    const driver = drivers?.find(d => d.id === formData.driverId);
-
+    
     if (Number(formData.cargoWeightKg) > (vehicle?.maxCapacityKg || 0)) {
       toast({ variant: "destructive", title: "Overload Detected", description: "Cargo exceeds vehicle payload capacity." });
       return;
@@ -188,12 +198,19 @@ export default function TripsPage() {
                 <Label className="font-bold text-slate-700">Available Asset:</Label>
                 <Select value={formData.vehicleId} onValueChange={(val) => setFormData({...formData, vehicleId: val})}>
                   <SelectTrigger className="rounded-xl h-11 border-slate-200">
-                    <SelectValue placeholder="Select Cargo Carrier" />
+                    <SelectValue placeholder={isVehiclesLoading ? "Loading Fleet..." : "Select Cargo Carrier"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {vehicles?.filter(v => v.status === 'Available').map(v => (
-                      <SelectItem key={v.id} value={v.id}>{v.licensePlate} - {v.model}</SelectItem>
-                    ))}
+                    {availableVehicles.length > 0 ? (
+                      availableVehicles.map(v => (
+                        <SelectItem key={v.id} value={v.id}>{v.licensePlate} - {v.model}</SelectItem>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-xs text-slate-400">
+                        <AlertCircle className="w-4 h-4 mx-auto mb-2 opacity-50" />
+                        No available assets. Check registry.
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -207,12 +224,19 @@ export default function TripsPage() {
                 <Label className="font-bold text-slate-700">Verified Operator:</Label>
                 <Select value={formData.driverId} onValueChange={(val) => setFormData({...formData, driverId: val})}>
                   <SelectTrigger className="rounded-xl h-11 border-slate-200">
-                    <SelectValue placeholder="Assign Certified Driver" />
+                    <SelectValue placeholder={isDriversLoading ? "Loading Roster..." : "Assign Certified Driver"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {drivers?.filter(d => d.status === 'On Duty' || d.status === 'Available').map(d => (
-                      <SelectItem key={d.id} value={d.id}>{d.name} ({d.licenseCategory})</SelectItem>
-                    ))}
+                    {availableDrivers.length > 0 ? (
+                      availableDrivers.map(d => (
+                        <SelectItem key={d.id} value={d.id}>{d.name} ({d.licenseCategory})</SelectItem>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-xs text-slate-400">
+                        <AlertCircle className="w-4 h-4 mx-auto mb-2 opacity-50" />
+                        No operators on duty.
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -228,8 +252,12 @@ export default function TripsPage() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full h-12 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold shadow-xl shadow-primary/20 transition-all active:scale-95">
-                <Navigation className="w-5 h-5 mr-2" /> Confirm Dispatch
+              <Button 
+                type="submit" 
+                disabled={isVehiclesLoading || isDriversLoading}
+                className="w-full h-12 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold shadow-xl shadow-primary/20 transition-all active:scale-95"
+              >
+                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Navigation className="w-5 h-5 mr-2" /> Confirm Dispatch</>}
               </Button>
             </form>
           </CardContent>

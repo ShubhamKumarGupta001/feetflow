@@ -8,12 +8,10 @@
  * of the user's UID within specialized role-based collections (e.g., /roles_fleetManagers/{userId}).
  * 
  * Key Security Decisions:
- * - Read Access (Get/List): To prevent race conditions during login/provisioning, all 
- *   authenticated users can read organizational assets (Trips, Vehicles, etc.).
- * - Write Access (Create/Update/Delete): Strictly enforced by Role membership. 
- *   Only Fleet Managers can create vehicles, only Dispatchers/Managers can manage trips.
- * - Prototype Self-Provisioning: Users can manage their own role flag documents to 
- *   enable immediate onboarding.
+ * - Read Access (Get/List): All authenticated users can read organizational assets 
+ *   (Trips, Vehicles, etc.) to ensure a smooth UI experience and support list operations.
+ * - Write Access (Create/Update/Delete): Enforced by Role membership. 
+ *   Only Fleet Managers can manage vehicles; Dispatchers/Managers manage trips.
  */
 
 rules_version = '2';
@@ -58,8 +56,6 @@ service cloud.firestore {
       function isRoleCollection() {
         return roleColl in ['roles_fleetManagers', 'roles_dispatchers', 'roles_safetyOfficers', 'roles_financialAnalysts'];
       }
-
-      // Users can read any role flag for authorization checks, but only manage their own
       allow get: if isRoleCollection() && isSignedIn();
       allow list: if isRoleCollection() && (isFleetManager() || isOwner(userId));
       allow create, update: if isRoleCollection() && isOwner(userId);
@@ -71,7 +67,7 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
-    // Operational Collections: Broad Read, Strict Write
+    // Operational Collections: Broad Read (for all authenticated staff), Strict Write
     
     match /vehicles/{vehicleId} {
       allow get, list: if isSignedIn();
