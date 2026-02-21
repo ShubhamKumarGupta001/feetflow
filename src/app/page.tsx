@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowRight, Truck, ShieldCheck, Zap, BarChart3, Clock } from 'lucide-react';
+import { ArrowRight, Truck, ShieldCheck, Zap, BarChart3, Clock, CheckCircle2 } from 'lucide-react';
 
 export default function Home() {
   return (
@@ -14,7 +14,7 @@ export default function Home() {
           <span className="font-headline text-2xl font-bold text-primary tracking-tight">FleetFlow</span>
         </div>
         <nav className="hidden md:flex items-center gap-8">
-          <Link href="#features" className="text-sm font-semibold text-slate-600 hover:text-primary transition-colors">Features</Link>
+          <Link href="#workflow" className="text-sm font-semibold text-slate-600 hover:text-primary transition-colors">Workflow</Link>
           <Link href="/dashboard" className="text-sm font-semibold text-slate-600 hover:text-primary transition-colors">Dashboard</Link>
           <Link href="/auth/login" className="text-sm font-semibold text-slate-600 hover:text-primary transition-colors">Sign In</Link>
           <Link href="/auth/register">
@@ -24,7 +24,7 @@ export default function Home() {
       </header>
 
       <main className="flex-1">
-        <section className="px-6 py-24 lg:py-32 lg:px-12 max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
+        <section className="px-6 py-20 lg:py-24 lg:px-12 max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center border-b">
           <div className="space-y-10 animate-in fade-in slide-in-from-left-4 duration-700">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/5 border border-primary/10 text-primary text-xs font-bold uppercase tracking-wider">
               <Zap className="w-3 h-3 fill-primary" />
@@ -48,10 +48,6 @@ export default function Home() {
                 </Button>
               </Link>
             </div>
-            <div className="flex items-center gap-8 pt-4 grayscale opacity-50">
-              <div className="flex items-center gap-2 font-bold text-slate-900"><ShieldCheck className="w-5 h-5"/> RBAC SECURE</div>
-              <div className="flex items-center gap-2 font-bold text-slate-900"><Clock className="w-5 h-5"/> REAL-TIME LOGS</div>
-            </div>
           </div>
           <div className="relative animate-in fade-in slide-in-from-right-4 duration-1000">
             <div className="absolute -inset-10 bg-primary/5 blur-3xl rounded-full"></div>
@@ -66,38 +62,48 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="features" className="px-6 py-24 bg-white border-t border-slate-100">
+        <section id="workflow" className="px-6 py-24 bg-white">
           <div className="max-w-7xl mx-auto space-y-20">
             <div className="text-center space-y-4">
-              <h2 className="font-headline text-4xl font-bold text-slate-900">Enterprise Logistics Toolkit</h2>
-              <p className="text-slate-500 text-lg max-w-2xl mx-auto font-medium">Everything you need to replace manual logbooks with a rule-based digital system.</p>
+              <h2 className="font-headline text-4xl font-bold text-slate-900">Operational Quick Start</h2>
+              <p className="text-slate-500 text-lg max-w-2xl mx-auto font-medium">Master the FleetFlow lifecycle in four simple steps.</p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-10">
+            <div className="grid md:grid-cols-4 gap-8">
               {[
                 {
-                  icon: <Truck className="w-8 h-8 text-primary" />,
-                  title: "Vehicle Registry",
-                  desc: "Comprehensive CRUD management for your assets with real-time status tracking and lifecycle optimization."
+                  step: "01",
+                  title: "Vehicle Intake",
+                  desc: "Add your assets in the Registry. Set capacity and initial mileage to start tracking lifecycle.",
+                  icon: <Truck className="w-6 h-6 text-primary" />
                 },
                 {
-                  icon: <BarChart3 className="w-8 h-8 text-primary" />,
-                  title: "Trip Dispatcher",
-                  desc: "Smart lifecycle management from Draft to Complete with cargo capacity and license compliance checks."
+                  step: "02",
+                  title: "Driver Onboarding",
+                  desc: "Register drivers and verify licenses. System auto-suspends expired credentials.",
+                  icon: <ShieldCheck className="w-6 h-6 text-primary" />
                 },
                 {
-                  icon: <Zap className="w-8 h-8 text-primary" />,
-                  title: "Financial Analytics",
-                  desc: "Automatic cost-per-km calculations, ROI monitoring, and fuel consumption tracking per asset."
+                  step: "03",
+                  title: "Smart Dispatch",
+                  desc: "Assign available drivers to trips. System prevents overloading and scheduling conflicts.",
+                  icon: <BarChart3 className="w-6 h-6 text-primary" />
+                },
+                {
+                  step: "04",
+                  title: "Maintenance",
+                  desc: "Log repairs to pull assets from rotation. Keep your fleet safe and operational.",
+                  icon: <Clock className="w-6 h-6 text-primary" />
                 }
-              ].map((feature, i) => (
-                <Card key={i} className="border-none bg-slate-50/50 hover:bg-white hover:shadow-xl transition-all duration-300 cursor-default group rounded-3xl p-4">
-                  <CardContent className="pt-8 pb-8 space-y-6">
-                    <div className="p-4 bg-white w-fit rounded-2xl shadow-sm group-hover:scale-110 transition-transform shadow-slate-200/50">{feature.icon}</div>
-                    <h3 className="text-2xl font-bold font-headline text-slate-900">{feature.title}</h3>
-                    <p className="text-slate-600 leading-relaxed font-medium">{feature.desc}</p>
-                  </CardContent>
-                </Card>
+              ].map((item, i) => (
+                <div key={i} className="relative p-8 rounded-3xl bg-slate-50 border border-slate-100 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="text-4xl font-black text-primary/10 font-headline">{item.step}</div>
+                    <div className="p-3 bg-white rounded-2xl shadow-sm">{item.icon}</div>
+                  </div>
+                  <h3 className="text-xl font-bold font-headline">{item.title}</h3>
+                  <p className="text-slate-500 text-sm leading-relaxed">{item.desc}</p>
+                </div>
               ))}
             </div>
           </div>
@@ -105,35 +111,35 @@ export default function Home() {
       </main>
 
       <footer className="bg-slate-900 text-slate-400 py-16 px-6 lg:px-12 border-t border-slate-800">
-        <div className="max-w-7xl mx-auto grid md:grid-cols-4 gap-12">
+        <div className="max-w-7xl mx-auto grid md:grid-cols-4 gap-12 text-center md:text-left">
           <div className="col-span-2 space-y-6">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center md:justify-start gap-2">
               <Truck className="text-white w-6 h-6" />
               <span className="font-headline text-2xl font-bold text-white tracking-tight">FleetFlow</span>
             </div>
-            <p className="max-w-xs text-slate-500 font-medium">The definitive SaaS platform for modern fleet and logistics management. Built for performance and reliability.</p>
+            <p className="max-w-xs mx-auto md:mx-0 text-slate-500 font-medium">The definitive SaaS platform for modern fleet and logistics management. Built for performance and reliability.</p>
           </div>
           <div className="space-y-4">
-            <h4 className="text-white font-bold">Product</h4>
+            <h4 className="text-white font-bold">Modules</h4>
             <ul className="space-y-2 text-sm font-medium">
-              <li><Link href="/dashboard" className="hover:text-primary transition-colors">Dashboard</Link></li>
-              <li><Link href="/dashboard/vehicles" className="hover:text-primary transition-colors">Vehicle Registry</Link></li>
-              <li><Link href="/dashboard/trips" className="hover:text-primary transition-colors">Trip Dispatcher</Link></li>
+              <li><Link href="/dashboard/vehicles" className="hover:text-primary transition-colors">Registry</Link></li>
+              <li><Link href="/dashboard/trips" className="hover:text-primary transition-colors">Dispatcher</Link></li>
+              <li><Link href="/dashboard/maintenance" className="hover:text-primary transition-colors">Maintenance</Link></li>
             </ul>
           </div>
           <div className="space-y-4">
-            <h4 className="text-white font-bold">Company</h4>
+            <h4 className="text-white font-bold">Compliance</h4>
             <ul className="space-y-2 text-sm font-medium">
-              <li><Link href="#" className="hover:text-primary transition-colors">About Us</Link></li>
+              <li><Link href="/dashboard/performance" className="hover:text-primary transition-colors">Driver Safety</Link></li>
               <li><Link href="#" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
-              <li><Link href="#" className="hover:text-primary transition-colors">Contact</Link></li>
+              <li><Link href="#" className="hover:text-primary transition-colors">License Engine</Link></li>
             </ul>
           </div>
         </div>
         <div className="max-w-7xl mx-auto pt-12 mt-12 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm font-medium text-slate-600">© 2024 FleetFlow Logistics SaaS. All rights reserved.</p>
           <div className="flex gap-6">
-            <Link href="#" className="text-slate-600 hover:text-white transition-colors"><ShieldCheck className="w-5 h-5"/></Link>
+            <ShieldCheck className="w-5 h-5 text-slate-600"/>
           </div>
         </div>
       </footer>
