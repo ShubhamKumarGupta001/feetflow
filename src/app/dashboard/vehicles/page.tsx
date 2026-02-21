@@ -43,7 +43,6 @@ export default function VehiclesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  // Form State
   const [formData, setFormData] = useState({
     licensePlate: '',
     maxCapacityKg: '',
@@ -53,13 +52,11 @@ export default function VehiclesPage() {
     name: ''
   });
 
-  // 1. Get User Profile to find the roleId
   const userRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
 
-  // 2. Authorization Gating: Verify role flag existence to satisfy Security Rules (exists() check)
   const roleCollection = useMemo(() => {
-    if (!userProfile?.roleId) return 'roles_fleetManagers';
+    if (!userProfile?.roleId) return null;
     const rid = userProfile.roleId;
     if (rid === 'dispatcher') return 'roles_dispatchers';
     if (rid === 'safety-officer') return 'roles_safetyOfficers';
@@ -67,12 +64,11 @@ export default function VehiclesPage() {
     return 'roles_fleetManagers';
   }, [userProfile]);
 
-  const roleFlagRef = useMemoFirebase(() => (user && userProfile) ? doc(firestore, roleCollection, user.uid) : null, [firestore, user, userProfile, roleCollection]);
+  const roleFlagRef = useMemoFirebase(() => (user && roleCollection) ? doc(firestore, roleCollection, user.uid) : null, [firestore, user, roleCollection]);
   const { data: roleFlag, isLoading: isRoleFlagLoading } = useDoc(roleFlagRef);
 
   const isAuthorized = !!roleFlag;
 
-  // 3. Fetch Vehicles - Only if user has a verified role and we have a valid flag
   const vehiclesRef = useMemoFirebase(() => {
     if (!user || !isAuthorized) return null;
     return collection(firestore, 'vehicles');

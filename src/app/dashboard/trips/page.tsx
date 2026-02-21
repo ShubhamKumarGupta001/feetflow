@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { 
   useCollection, 
   useFirestore, 
@@ -43,7 +43,6 @@ export default function TripsPage() {
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Form State
   const [formData, setFormData] = useState({
     vehicleId: '',
     driverId: '',
@@ -53,23 +52,32 @@ export default function TripsPage() {
     estimatedFuelCost: ''
   });
 
-  // Role Verification
-  const roleRef = useMemoFirebase(() => {
-    if (!user) return null;
-    return doc(firestore, 'roles_fleetManagers', user.uid);
-  }, [firestore, user]);
-  const { data: roleDoc, isLoading: isRoleLoading } = useDoc(roleRef);
+  const userRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
 
-  // Collections
-  const vehiclesRef = useMemoFirebase(() => (!user || !roleDoc) ? null : collection(firestore, 'vehicles'), [firestore, user, roleDoc]);
-  const driversRef = useMemoFirebase(() => (!user || !roleDoc) ? null : collection(firestore, 'drivers'), [firestore, user, roleDoc]);
-  const tripsRef = useMemoFirebase(() => (!user || !roleDoc) ? null : collection(firestore, 'trips'), [firestore, user, roleDoc]);
+  const roleCollection = useMemo(() => {
+    if (!userProfile?.roleId) return null;
+    const rid = userProfile.roleId;
+    if (rid === 'dispatcher') return 'roles_dispatchers';
+    if (rid === 'safety-officer') return 'roles_safetyOfficers';
+    if (rid === 'financial-analyst') return 'roles_financialAnalysts';
+    return 'roles_fleetManagers';
+  }, [userProfile]);
+
+  const roleFlagRef = useMemoFirebase(() => (user && roleCollection) ? doc(firestore, roleCollection, user.uid) : null, [firestore, user, roleCollection]);
+  const { data: roleFlag, isLoading: isRoleFlagLoading } = useDoc(roleFlagRef);
+
+  const isAuthorized = !!roleFlag;
+
+  const vehiclesRef = useMemoFirebase(() => (!user || !isAuthorized) ? null : collection(firestore, 'vehicles'), [firestore, user, isAuthorized]);
+  const driversRef = useMemoFirebase(() => (!user || !isAuthorized) ? null : collection(firestore, 'drivers'), [firestore, user, isAuthorized]);
+  const tripsRef = useMemoFirebase(() => (!user || !isAuthorized) ? null : collection(firestore, 'trips'), [firestore, user, isAuthorized]);
 
   const { data: vehicles, isLoading: isVehiclesLoading } = useCollection(vehiclesRef);
   const { data: drivers, isLoading: isDriversLoading } = useCollection(driversRef);
   const { data: trips, isLoading: isTripsLoading } = useCollection(tripsRef);
 
-  const isLoading = isRoleLoading || isVehiclesLoading || isDriversLoading || isTripsLoading;
+  const isLoading = isProfileLoading || isRoleFlagLoading || isVehiclesLoading || isDriversLoading || isTripsLoading;
 
   const handleDispatch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,7 +86,6 @@ export default function TripsPage() {
     const vehicle = vehicles?.find(v => v.id === formData.vehicleId);
     const driver = drivers?.find(d => d.id === formData.driverId);
 
-    // PRD Validation Logic
     if (Number(formData.cargoWeightKg) > (vehicle?.maxCapacityKg || 0)) {
       toast({
         variant: "destructive",
@@ -97,24 +104,21 @@ export default function TripsPage() {
       return;
     }
 
-    // 1. Create Trip
     const tripId = crypto.randomUUID();
     addDocumentNonBlocking(tripsRef, {
       id: tripId,
       ...formData,
       cargoWeightKg: Number(formData.cargoWeightKg),
-      revenue: 0, // In a real app, this might be calculated
+      revenue: 0,
       startOdometerKm: vehicle?.odometerKm || 0,
       status: 'Dispatched',
       dispatchDate: new Date().toISOString(),
       createdAt: serverTimestamp()
     });
 
-    // 2. Update Vehicle Status
     const vehicleRef = doc(firestore, 'vehicles', formData.vehicleId);
     updateDocumentNonBlocking(vehicleRef, { status: 'On Trip' });
 
-    // 3. Update Driver Status
     const driverRef = doc(firestore, 'drivers', formData.driverId);
     updateDocumentNonBlocking(driverRef, { status: 'On Trip' });
 
@@ -149,7 +153,6 @@ export default function TripsPage() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        {/* Trip List Section */}
         <Card className="xl:col-span-2 border-none shadow-sm overflow-hidden bg-white">
           <CardHeader className="p-6 bg-white border-b flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="relative w-full sm:w-96">
@@ -217,7 +220,6 @@ export default function TripsPage() {
           </CardContent>
         </Card>
 
-        {/* Dispatch Form Section */}
         <Card className="border-none shadow-sm bg-white">
           <CardHeader className="border-b bg-slate-50/50">
             <CardTitle className="text-xl font-bold font-headline text-primary">New Trip Form</CardTitle>

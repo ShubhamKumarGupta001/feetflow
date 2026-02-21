@@ -16,13 +16,11 @@ export default function DashboardPage() {
   const { user } = useUser();
   const db = useFirestore();
   
-  // 1. Get User Identity & Meta
   const userRef = useMemoFirebase(() => user ? doc(db, 'users', user.uid) : null, [db, user]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
 
-  // 2. Authorization Gating: Verify role flag existence to satisfy Security Rules (exists() check)
   const roleCollection = useMemo(() => {
-    if (!userProfile?.roleId) return 'roles_fleetManagers';
+    if (!userProfile?.roleId) return null;
     const rid = userProfile.roleId;
     if (rid === 'dispatcher') return 'roles_dispatchers';
     if (rid === 'safety-officer') return 'roles_safetyOfficers';
@@ -30,12 +28,11 @@ export default function DashboardPage() {
     return 'roles_fleetManagers';
   }, [userProfile]);
 
-  const roleFlagRef = useMemoFirebase(() => (user && userProfile) ? doc(db, roleCollection, user.uid) : null, [db, user, userProfile, roleCollection]);
+  const roleFlagRef = useMemoFirebase(() => (user && roleCollection) ? doc(db, roleCollection, user.uid) : null, [db, user, roleCollection]);
   const { data: roleFlag, isLoading: isRoleFlagLoading } = useDoc(roleFlagRef);
 
   const isAuthorized = !!roleFlag;
 
-  // 3. Permission-Gated References
   const canSeeTrips = isAuthorized && (userProfile?.roleId === 'fleet-manager' || userProfile?.roleId === 'dispatcher');
   const canSeeVehicles = isAuthorized && (userProfile?.roleId === 'fleet-manager' || userProfile?.roleId === 'dispatcher' || userProfile?.roleId === 'safety-officer');
 
@@ -71,7 +68,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
-      {/* Welcome Banner */}
       <div className="relative p-10 rounded-3xl bg-slate-900 text-white overflow-hidden shadow-2xl">
         <div className="absolute top-0 right-0 p-8 opacity-10">
           <Truck className="w-40 h-40 -rotate-12" />
@@ -88,7 +84,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Search and Action Bar */}
       <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
         <div className="relative w-full lg:max-w-xl group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-primary transition-colors" />
@@ -108,7 +103,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Hero Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {stats.map((kpi, i) => (
           <Card key={i} className="border-none shadow-sm hover:shadow-2xl transition-all duration-500 rounded-3xl overflow-hidden group">
@@ -127,7 +121,6 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Operations Table */}
       {canSeeTrips && (
         <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
           <CardHeader className="px-8 py-8 border-b border-slate-50 flex flex-row items-center justify-between">
@@ -192,7 +185,6 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Role-Specific Secondary View */}
       {userProfile?.roleId === 'financial-analyst' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <Card className="border-none shadow-sm rounded-3xl bg-emerald-50 p-8 flex items-center gap-6">

@@ -37,8 +37,9 @@ export default function RegisterPage() {
   /**
    * Secure Role Determination Logic
    * 1. Check for the hardcoded System Admin Key first.
-   * 2. If no key, look for specialist keywords.
-   * 3. Default everyone else to 'dispatcher'.
+   * 2. If no key, look for specialist keywords (Safety, Finance).
+   * 3. Keywords like 'admin' or 'manager' in email NO LONGER grant fleet-manager role.
+   * 4. Default everyone else to 'dispatcher'.
    */
   const determineRole = (email: string, key: string) => {
     const lowEmail = email.toLowerCase();
@@ -53,7 +54,7 @@ export default function RegisterPage() {
     if (lowEmail.includes('finance') || lowEmail.includes('audit') || lowEmail.includes('account')) return 'financial-analyst';
     if (lowEmail.includes('dispatch')) return 'dispatcher';
     
-    // Strict Default: All other users are Dispatchers (Limited Access)
+    // Base Access: All other users are Dispatchers (Limited Access)
     return 'dispatcher'; 
   };
 
@@ -64,29 +65,24 @@ export default function RegisterPage() {
     setIsEmailInUse(false);
     
     try {
-      // 1. Determine role using the secure identity engine
       const roleId = determineRole(email, authKey);
       const roleConfig = ROLE_METADATA[roleId as keyof typeof ROLE_METADATA];
 
-      // 2. Authenticate with Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
-      // 3. Initialize User Profile (Non-blocking)
       setDocumentNonBlocking(doc(db, 'users', user.uid), {
         id: user.uid,
         email: user.email,
         roleId: roleId
       }, { merge: true });
 
-      // 4. Provision Specific Role Collection (Non-blocking)
       setDocumentNonBlocking(doc(db, roleConfig.collection, user.uid), {
         id: user.uid,
         name: roleConfig.label,
         accessScope: `System-generated access for the ${roleConfig.label} role.`
       }, { merge: true });
 
-      // 5. Redirect immediately
       router.push('/dashboard');
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') {

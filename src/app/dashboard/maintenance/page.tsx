@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { 
   useCollection, 
   useFirestore, 
@@ -46,7 +46,6 @@ export default function MaintenancePage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  // Form State
   const [formData, setFormData] = useState({
     vehicleId: '',
     serviceType: '',
@@ -55,37 +54,44 @@ export default function MaintenancePage() {
     notes: ''
   });
 
-  // Role Verification
-  const roleRef = useMemoFirebase(() => {
-    if (!user) return null;
-    return doc(firestore, 'roles_fleetManagers', user.uid);
-  }, [firestore, user]);
-  const { data: roleDoc, isLoading: isRoleLoading } = useDoc(roleRef);
+  const userRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
 
-  // Collections
-  const maintenanceRef = useMemoFirebase(() => (!user || !roleDoc) ? null : collection(firestore, 'maintenance_logs'), [firestore, user, roleDoc]);
-  const vehiclesRef = useMemoFirebase(() => (!user || !roleDoc) ? null : collection(firestore, 'vehicles'), [firestore, user, roleDoc]);
+  const roleCollection = useMemo(() => {
+    if (!userProfile?.roleId) return null;
+    const rid = userProfile.roleId;
+    if (rid === 'dispatcher') return 'roles_dispatchers';
+    if (rid === 'safety-officer') return 'roles_safetyOfficers';
+    if (rid === 'financial-analyst') return 'roles_financialAnalysts';
+    return 'roles_fleetManagers';
+  }, [userProfile]);
+
+  const roleFlagRef = useMemoFirebase(() => (user && roleCollection) ? doc(firestore, roleCollection, user.uid) : null, [firestore, user, roleCollection]);
+  const { data: roleFlag, isLoading: isRoleFlagLoading } = useDoc(roleFlagRef);
+
+  const isAuthorized = !!roleFlag;
+
+  const maintenanceRef = useMemoFirebase(() => (!user || !isAuthorized) ? null : collection(firestore, 'maintenance_logs'), [firestore, user, isAuthorized]);
+  const vehiclesRef = useMemoFirebase(() => (!user || !isAuthorized) ? null : collection(firestore, 'vehicles'), [firestore, user, isAuthorized]);
 
   const { data: logs, isLoading: isLogsLoading } = useCollection(maintenanceRef);
   const { data: vehicles, isLoading: isVehiclesLoading } = useCollection(vehiclesRef);
 
-  const isLoading = isRoleLoading || isLogsLoading || isVehiclesLoading;
+  const isLoading = isProfileLoading || isRoleFlagLoading || isLogsLoading || isVehiclesLoading;
 
   const handleCreateService = () => {
     if (!formData.vehicleId || !formData.serviceType || !maintenanceRef) return;
 
-    const logId = Math.floor(100 + Math.random() * 900).toString(); // Simulating the numeric Log ID from wireframe
+    const logId = Math.floor(100 + Math.random() * 900).toString();
 
-    // 1. Create Maintenance Log
     addDocumentNonBlocking(maintenanceRef, {
       id: logId,
       ...formData,
       cost: Number(formData.cost) || 0,
-      status: 'New', // Matches the "New" status from the pink wireframe table
+      status: 'New',
       createdAt: serverTimestamp()
     });
 
-    // 2. Auto-Logic: Update Vehicle status to 'In Shop'
     const vehicleRef = doc(firestore, 'vehicles', formData.vehicleId);
     updateDocumentNonBlocking(vehicleRef, { status: 'In Shop' });
 

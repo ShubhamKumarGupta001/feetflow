@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { 
   useCollection, 
   useFirestore, 
@@ -45,7 +45,6 @@ export default function PerformancePage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  // Form State
   const [formData, setFormData] = useState({
     name: '',
     licenseCategory: 'Class A',
@@ -56,18 +55,27 @@ export default function PerformancePage() {
     complaints: '0'
   });
 
-  // Role Verification
-  const roleRef = useMemoFirebase(() => {
-    if (!user) return null;
-    return doc(firestore, 'roles_fleetManagers', user.uid);
-  }, [firestore, user]);
-  const { data: roleDoc, isLoading: isRoleLoading } = useDoc(roleRef);
+  const userRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
 
-  // Collections
-  const driversRef = useMemoFirebase(() => (!user || !roleDoc) ? null : collection(firestore, 'drivers'), [firestore, user, roleDoc]);
+  const roleCollection = useMemo(() => {
+    if (!userProfile?.roleId) return null;
+    const rid = userProfile.roleId;
+    if (rid === 'dispatcher') return 'roles_dispatchers';
+    if (rid === 'safety-officer') return 'roles_safetyOfficers';
+    if (rid === 'financial-analyst') return 'roles_financialAnalysts';
+    return 'roles_fleetManagers';
+  }, [userProfile]);
+
+  const roleFlagRef = useMemoFirebase(() => (user && roleCollection) ? doc(firestore, roleCollection, user.uid) : null, [firestore, user, roleCollection]);
+  const { data: roleFlag, isLoading: isRoleFlagLoading } = useDoc(roleFlagRef);
+
+  const isAuthorized = !!roleFlag;
+
+  const driversRef = useMemoFirebase(() => (!user || !isAuthorized) ? null : collection(firestore, 'drivers'), [firestore, user, isAuthorized]);
   const { data: drivers, isLoading: isDriversLoading } = useCollection(driversRef);
 
-  const isLoading = isRoleLoading || isDriversLoading;
+  const isLoading = isProfileLoading || isRoleFlagLoading || isDriversLoading;
 
   const handleCreateDriver = () => {
     if (!formData.name || !formData.licenseExpiryDate || !driversRef) return;
@@ -299,38 +307,6 @@ export default function PerformancePage() {
           )}
         </CardContent>
       </Card>
-
-      <div className="grid md:grid-cols-2 gap-8 pb-8">
-        <Card className="border-none shadow-sm bg-primary/5">
-          <CardHeader>
-            <CardTitle className="text-lg font-bold font-headline flex items-center gap-2">
-              <ShieldAlert className="w-5 h-5 text-primary" /> Compliance Rule Engine
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between text-sm p-3 bg-white rounded-xl border">
-              <span className="font-medium text-slate-600">License Expiry Logic</span>
-              <Badge className="bg-emerald-500">ACTIVE</Badge>
-            </div>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Drivers with an expiry date earlier than today are automatically marked as <b>Suspended</b> and removed from the active dispatch pool.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-sm bg-slate-900 text-white">
-          <CardHeader>
-            <CardTitle className="text-lg font-bold font-headline flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-accent" /> Upcoming Renewals
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col items-center justify-center py-4 text-center">
-               <p className="text-sm text-slate-400">All licenses currently active. <br/>Next review in 14 days.</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }
