@@ -34,15 +34,17 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock,
-  Truck
+  Truck,
+  MapPin,
+  ChevronRight
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-// Define the 4 tracking stages
+// Define the 4 tracking stages with professional styling
 const TRACKING_STAGES = [
-  { id: 'Scheduled', label: 'Scheduled', color: 'bg-slate-200', icon: Clock },
+  { id: 'Scheduled', label: 'Scheduled', color: 'bg-slate-400', icon: Clock },
   { id: 'Dispatched', label: 'Dispatched', color: 'bg-blue-500', icon: Navigation },
   { id: 'In Transit', label: 'In Transit', color: 'bg-amber-500', icon: Truck },
   { id: 'Completed', label: 'Delivered', color: 'bg-emerald-500', icon: CheckCircle2 },
@@ -101,12 +103,12 @@ export default function TripsPage() {
     }
 
     if (cargoWeight > vehicleLimit) {
-      const { dismiss } = toast({ 
+      toast({ 
         variant: "destructive", 
-        title: "PAYLOAD OVERLOAD DETECTED", 
-        description: `CRITICAL ERROR: The entered cargo weight (${cargoWeight}kg) exceeds the ${vehicle?.name}'s maximum support limit of ${vehicleLimit}kg. This dispatch has been blocked for safety.` 
+        title: "PAYLOAD OVERLOAD", 
+        description: `Error: ${cargoWeight}kg exceeds ${vehicle?.name}'s limit of ${vehicleLimit}kg.`,
+        duration: 20000,
       });
-      setTimeout(() => dismiss(), 20000);
       return;
     }
 
@@ -124,21 +126,18 @@ export default function TripsPage() {
         destination: formData.destination,
         revenue: 0,
         startOdometerKm: vehicle?.odometerKm || 0,
-        status: 'Scheduled', // Initial stage
+        status: 'Scheduled',
         dispatchDate: new Date().toISOString(),
         createdAt: serverTimestamp()
       }, { merge: true });
 
-      const vehicleRef = doc(firestore, 'vehicles', formData.vehicleId);
-      updateDocumentNonBlocking(vehicleRef, { status: 'On Trip' });
-
-      const driverRef = doc(firestore, 'drivers', formData.driverId);
-      updateDocumentNonBlocking(driverRef, { status: 'On Trip' });
+      updateDocumentNonBlocking(doc(firestore, 'vehicles', formData.vehicleId), { status: 'On Trip' });
+      updateDocumentNonBlocking(doc(firestore, 'drivers', formData.driverId), { status: 'On Trip' });
 
       toast({ title: "Trip Scheduled", description: `${tripId} has been added to the queue.` });
       setFormData({ vehicleId: '', driverId: '', cargoWeightKg: '', origin: '', destination: '' });
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Dispatch Failed", description: "There was a problem syncing with the fleet ledger." });
+      toast({ variant: "destructive", title: "Dispatch Failed", description: "Could not sync with the ledger." });
     } finally {
       setIsSubmitting(false);
     }
@@ -152,19 +151,14 @@ export default function TripsPage() {
       
       const updateData: any = { status: nextStage.id };
       
-      // If completed, free up the vehicle and driver
       if (nextStage.id === 'Completed') {
         updateData.completionDate = new Date().toISOString();
-        
-        const vehicleRef = doc(firestore, 'vehicles', trip.vehicleId);
-        updateDocumentNonBlocking(vehicleRef, { status: 'Available' });
-
-        const driverRef = doc(firestore, 'drivers', trip.driverId);
-        updateDocumentNonBlocking(driverRef, { status: 'Available' });
+        updateDocumentNonBlocking(doc(firestore, 'vehicles', trip.vehicleId), { status: 'Available' });
+        updateDocumentNonBlocking(doc(firestore, 'drivers', trip.driverId), { status: 'Available' });
       }
 
       updateDocumentNonBlocking(tripRef, updateData);
-      toast({ title: "Tracking Updated", description: `Trip ${trip.id} is now ${nextStage.label}.` });
+      toast({ title: "Status Updated", description: `Trip is now ${nextStage.label}.` });
     }
   };
 
@@ -180,73 +174,95 @@ export default function TripsPage() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold font-headline text-slate-900 uppercase tracking-tighter">Trip Command</h2>
-          <p className="text-slate-500 font-medium">4-Stage Cargo Tracking & Asset Coordination</p>
+          <h2 className="text-3xl font-bold font-headline text-slate-900 uppercase tracking-tighter">Trip Command Center</h2>
+          <p className="text-slate-500 font-medium">Precision Cargo Tracking & Real-Time Logistics Lifecycle</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        <Card className="xl:col-span-2 border-none shadow-sm overflow-hidden bg-white">
-          <CardHeader className="p-6 bg-white border-b flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="relative w-full sm:w-96">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <Card className="xl:col-span-2 border-none shadow-xl bg-white rounded-3xl overflow-hidden">
+          <CardHeader className="p-8 bg-slate-50 border-b flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="relative w-full sm:w-96 group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors" />
               <Input 
-                placeholder="Search active deployments..." 
+                placeholder="Search by ID or destination..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-11 border-slate-200 bg-slate-50/50 rounded-xl font-medium"
+                className="pl-12 h-12 border-slate-200 bg-white rounded-2xl font-medium shadow-sm"
               />
             </div>
-            <div className="flex gap-2 text-xs font-bold uppercase tracking-widest text-slate-400">
-              Live Monitor Active
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Live Fleet Monitor
             </div>
           </CardHeader>
           <CardContent className="p-0">
             {isLoading ? (
-              <div className="flex flex-col items-center justify-center py-20">
-                <Loader2 className="w-10 h-10 animate-spin text-primary/50" />
+              <div className="flex flex-col items-center justify-center py-32">
+                <Loader2 className="w-12 h-12 animate-spin text-primary/50" />
+                <p className="mt-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Updating Trip States...</p>
               </div>
             ) : (
               <Table>
-                <TableHeader className="bg-slate-50/50">
-                  <TableRow className="border-none">
-                    <TableHead className="w-[100px] h-14 pl-8 text-xs font-bold uppercase text-slate-400">ID</TableHead>
-                    <TableHead className="h-14 text-xs font-bold uppercase text-slate-400">Route Map</TableHead>
-                    <TableHead className="h-14 text-xs font-bold uppercase text-slate-400">Tracking Progress</TableHead>
-                    <TableHead className="h-14 pr-8 text-right text-xs font-bold uppercase text-slate-400">Actions</TableHead>
+                <TableHeader className="bg-white border-b">
+                  <TableRow className="border-none hover:bg-transparent">
+                    <TableHead className="w-[120px] h-16 pl-8 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Log Ref</TableHead>
+                    <TableHead className="h-16 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Route Details</TableHead>
+                    <TableHead className="h-16 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Lifecycle Stage</TableHead>
+                    <TableHead className="h-16 pr-8 text-right text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Command</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredTrips.map((trip) => {
                     const currentStageIndex = TRACKING_STAGES.findIndex(s => s.id === trip.status);
                     const isCompleted = trip.status === 'Completed';
+                    const activeStage = TRACKING_STAGES[currentStageIndex];
 
                     return (
-                      <TableRow key={trip.id} className="h-20 border-slate-100 hover:bg-slate-50/50 transition-colors group">
-                        <TableCell className="pl-8 font-black text-primary/70 text-xs">{trip.id}</TableCell>
-                        <TableCell>
-                          <div className="font-bold text-slate-900">{trip.origin} → {trip.destination}</div>
-                          <div className="text-[10px] text-slate-400 font-medium">Weight: {trip.cargoWeightKg}kg</div>
+                      <TableRow key={trip.id} className="h-24 border-slate-50 hover:bg-slate-50/50 transition-all group">
+                        <TableCell className="pl-8">
+                          <span className="font-mono text-xs font-bold text-slate-400 group-hover:text-primary transition-colors">{trip.id}</span>
                         </TableCell>
-                        <TableCell className="min-w-[200px]">
-                          <div className="flex items-center gap-1 mb-2">
-                            {TRACKING_STAGES.map((stage, idx) => (
-                              <div 
-                                key={stage.id} 
-                                className={cn(
-                                  "h-1.5 flex-1 rounded-full transition-all duration-500",
-                                  idx <= currentStageIndex ? stage.color : "bg-slate-100"
-                                )}
-                              />
-                            ))}
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-primary/5 rounded-xl text-primary">
+                              <MapPin className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <div className="font-black text-slate-900 leading-none flex items-center gap-2">
+                                {trip.origin} <ChevronRight className="w-3 h-3 text-slate-300" /> {trip.destination}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                                Payload: <span className="text-slate-600">{trip.cargoWeightKg}KG</span>
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-black uppercase tracking-tighter text-slate-500">
-                              {TRACKING_STAGES[currentStageIndex]?.label || trip.status}
-                            </span>
-                            <span className="text-[10px] font-bold text-slate-300">
-                              Stage {currentStageIndex + 1}/4
-                            </span>
+                        </TableCell>
+                        <TableCell className="min-w-[280px]">
+                          <div className="space-y-3">
+                            <div className="flex gap-1">
+                              {TRACKING_STAGES.map((stage, idx) => (
+                                <div 
+                                  key={stage.id} 
+                                  className={cn(
+                                    "h-2 flex-1 rounded-full transition-all duration-700 shadow-inner",
+                                    idx <= currentStageIndex ? stage.color : "bg-slate-100"
+                                  )}
+                                />
+                              ))}
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <Badge className={cn(
+                                "rounded-xl px-3 py-1 font-black text-[9px] uppercase tracking-widest border-none shadow-sm",
+                                activeStage?.color,
+                                "text-white"
+                              )}>
+                                {activeStage?.label}
+                              </Badge>
+                              <span className="text-[10px] font-black text-slate-300 uppercase tracking-tighter">
+                                Stage {currentStageIndex + 1} / 4
+                              </span>
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell className="pr-8 text-right">
@@ -255,14 +271,15 @@ export default function TripsPage() {
                               size="sm" 
                               variant="outline"
                               onClick={() => advanceStage(trip)}
-                              className="h-8 rounded-lg border-primary/20 text-primary hover:bg-primary hover:text-white font-bold text-[10px] uppercase tracking-widest"
+                              className="h-9 rounded-xl border-primary/20 text-primary hover:bg-primary hover:text-white font-black text-[10px] uppercase tracking-widest transition-all shadow-sm active:scale-95"
                             >
-                              Next Stage <ArrowRight className="w-3 h-3 ml-1" />
+                              Advance Stage <ArrowRight className="w-3 h-3 ml-2" />
                             </Button>
                           ) : (
-                            <Badge className="bg-emerald-100 text-emerald-700 border-none font-bold uppercase text-[10px] tracking-widest px-3">
+                            <div className="flex items-center justify-end gap-2 text-emerald-600 font-black text-[10px] uppercase tracking-[0.2em]">
+                              <CheckCircle2 className="w-4 h-4" />
                               Delivered
-                            </Badge>
+                            </div>
                           )}
                         </TableCell>
                       </TableRow>
@@ -273,75 +290,80 @@ export default function TripsPage() {
             )}
 
             {!isLoading && filteredTrips.length === 0 && (
-              <div className="py-24 text-center">
-                <ClipboardList className="w-12 h-12 text-slate-100 mx-auto mb-4" />
-                <h3 className="text-lg font-bold text-slate-400 font-headline uppercase tracking-tighter">No Active Journeys</h3>
+              <div className="py-32 text-center flex flex-col items-center justify-center">
+                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+                  <ClipboardList className="w-10 h-10 text-slate-200" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 font-headline uppercase tracking-tighter">No Active Tracking</h3>
+                <p className="text-slate-400 mt-2 font-medium max-w-xs mx-auto text-sm">Deploy your first fleet asset to begin real-time cargo monitoring.</p>
               </div>
             )}
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm bg-white overflow-hidden">
-          <CardHeader className="border-b bg-primary/5">
-            <CardTitle className="text-xl font-bold font-headline uppercase tracking-tighter text-primary">Deployment Hub</CardTitle>
-            <CardDescription className="font-medium text-slate-500">Start new tracking lifecycle.</CardDescription>
+        <Card className="border-none shadow-xl bg-white rounded-3xl overflow-hidden self-start">
+          <CardHeader className="p-8 border-b bg-primary/5">
+            <CardTitle className="text-2xl font-bold font-headline uppercase tracking-tighter text-primary">Deployment Hub</CardTitle>
+            <CardDescription className="font-medium text-slate-500">Initiate new cargo tracking lifecycle.</CardDescription>
           </CardHeader>
           <CardContent className="p-8">
             <form onSubmit={handleDispatch} className="space-y-6">
               <div className="space-y-2">
-                <Label className="font-bold text-slate-700">Available Asset:</Label>
+                <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-widest">Select Ready Asset</Label>
                 <Select value={formData.vehicleId} onValueChange={(val) => setFormData({...formData, vehicleId: val})}>
-                  <SelectTrigger className="rounded-xl h-11 border-slate-200">
-                    <SelectValue placeholder={isVehiclesLoading ? "Loading Fleet..." : "Select Cargo Carrier"} />
+                  <SelectTrigger className="rounded-2xl h-12 border-slate-200 bg-slate-50/50">
+                    <SelectValue placeholder={isVehiclesLoading ? "Syncing Fleet..." : "Asset Identity"} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="rounded-2xl border-none shadow-2xl">
                     {availableVehicles.length > 0 ? (
                       availableVehicles.map(v => (
-                        <SelectItem key={v.id} value={v.id}>
-                          {v.licensePlate} ({v.model}) - Max: {v.maxCapacityKg}kg
+                        <SelectItem key={v.id} value={v.id} className="py-3 px-4">
+                          <div className="flex flex-col">
+                            <span className="font-bold">{v.name} ({v.licensePlate})</span>
+                            <span className="text-[10px] text-slate-400 uppercase font-black">Limit: {v.maxCapacityKg}KG</span>
+                          </div>
                         </SelectItem>
                       ))
                     ) : (
-                      <div className="p-4 text-center text-xs text-slate-400">
-                        <AlertCircle className="w-4 h-4 mx-auto mb-2 opacity-50" />
-                        No available assets. Check registry.
-                      </div>
+                      <div className="p-4 text-center text-xs text-slate-400 italic">No available assets.</div>
                     )}
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center gap-2 mb-1">
-                  <Weight className="w-4 h-4 text-slate-400" />
-                  <Label className="font-bold text-slate-700">Cargo Weight (KG):</Label>
+                <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-widest">Intended Payload (KG)</Label>
+                <div className="relative">
+                  <Weight className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input 
+                    type="number" 
+                    value={formData.cargoWeightKg} 
+                    onChange={(e) => setFormData({...formData, cargoWeightKg: e.target.value})} 
+                    className="rounded-2xl h-12 pl-12 bg-slate-50/50 border-slate-200" 
+                    placeholder="e.g. 5000"
+                    required 
+                  />
                 </div>
-                <Input 
-                  type="number" 
-                  value={formData.cargoWeightKg} 
-                  onChange={(e) => setFormData({...formData, cargoWeightKg: e.target.value})} 
-                  className="rounded-xl h-11" 
-                  placeholder="Enter intended payload"
-                  required 
-                />
               </div>
 
               <div className="space-y-2">
-                <Label className="font-bold text-slate-700">Verified Operator:</Label>
+                <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-widest">Assign Operator</Label>
                 <Select value={formData.driverId} onValueChange={(val) => setFormData({...formData, driverId: val})}>
-                  <SelectTrigger className="rounded-xl h-11 border-slate-200">
-                    <SelectValue placeholder={isDriversLoading ? "Loading Roster..." : "Assign Certified Driver"} />
+                  <SelectTrigger className="rounded-2xl h-12 border-slate-200 bg-slate-50/50">
+                    <SelectValue placeholder={isDriversLoading ? "Syncing Roster..." : "Driver Name"} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="rounded-2xl border-none shadow-2xl">
                     {availableDrivers.length > 0 ? (
                       availableDrivers.map(d => (
-                        <SelectItem key={d.id} value={d.id}>{d.name} ({d.licenseCategory})</SelectItem>
+                        <SelectItem key={d.id} value={d.id} className="py-3 px-4">
+                          <div className="flex flex-col">
+                            <span className="font-bold">{d.name}</span>
+                            <span className="text-[10px] text-slate-400 uppercase font-black">{d.licenseCategory} Certified</span>
+                          </div>
+                        </SelectItem>
                       ))
                     ) : (
-                      <div className="p-4 text-center text-xs text-slate-400">
-                        <AlertCircle className="w-4 h-4 mx-auto mb-2 opacity-50" />
-                        No operators on duty.
-                      </div>
+                      <div className="p-4 text-center text-xs text-slate-400 italic">No drivers on duty.</div>
                     )}
                   </SelectContent>
                 </Select>
@@ -349,21 +371,28 @@ export default function TripsPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="font-bold text-slate-700">Origin Point:</Label>
-                  <Input value={formData.origin} onChange={(e) => setFormData({...formData, origin: e.target.value})} className="rounded-xl h-11" placeholder="City/Hub" required />
+                  <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-widest">Origin</Label>
+                  <Input value={formData.origin} onChange={(e) => setFormData({...formData, origin: e.target.value})} className="rounded-2xl h-12 bg-slate-50/50 border-slate-200" placeholder="Source Hub" required />
                 </div>
                 <div className="space-y-2">
-                  <Label className="font-bold text-slate-700">Destination:</Label>
-                  <Input value={formData.destination} onChange={(e) => setFormData({...formData, destination: e.target.value})} className="rounded-xl h-11" placeholder="Final Stop" required />
+                  <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-widest">Destination</Label>
+                  <Input value={formData.destination} onChange={(e) => setFormData({...formData, destination: e.target.value})} className="rounded-2xl h-12 bg-slate-50/50 border-slate-200" placeholder="Target Point" required />
                 </div>
               </div>
 
               <Button 
                 type="submit" 
                 disabled={isVehiclesLoading || isDriversLoading || isSubmitting}
-                className="w-full h-12 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold shadow-xl shadow-primary/20 transition-all active:scale-95"
+                className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl font-black text-lg shadow-2xl shadow-primary/30 transition-all active:scale-95 group"
               >
-                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Navigation className="w-5 h-5 mr-2" /> Confirm Dispatch</>}
+                {isSubmitting ? (
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                ) : (
+                  <>
+                    <Navigation className="w-5 h-5 mr-3 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" /> 
+                    Confirm Dispatch
+                  </>
+                )}
               </Button>
             </form>
           </CardContent>
