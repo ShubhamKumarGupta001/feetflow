@@ -51,6 +51,7 @@ export default function RegisterPage() {
     // Specialist Logistics keywords for standard roles
     if (lowEmail.includes('safety') || lowEmail.includes('compliance')) return 'safety-officer';
     if (lowEmail.includes('finance') || lowEmail.includes('audit') || lowEmail.includes('account')) return 'financial-analyst';
+    if (lowEmail.includes('dispatch')) return 'dispatcher';
     
     // Strict Default: All other users are Dispatchers (Limited Access)
     return 'dispatcher'; 

@@ -49,10 +49,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
   // 2. Self-Healing Role Provisioning: Ensures existing users have the required role flag doc
-  // This is critical for security rules that use exists() on role collections.
   useEffect(() => {
     if (user && userProfile && !isProfileLoading) {
-      const roleId = userProfile.roleId || 'fleet-manager';
+      // Default to 'dispatcher' if roleId is missing, following strict gating rules
+      const roleId = userProfile.roleId || 'dispatcher';
       const roleCollection = 
         roleId === 'dispatcher' ? 'roles_dispatchers' :
         roleId === 'safety-officer' ? 'roles_safetyOfficers' :
