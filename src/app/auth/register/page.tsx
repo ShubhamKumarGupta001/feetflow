@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Truck, Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Truck, Loader2, ShieldCheck, AlertCircle, KeyRound } from 'lucide-react';
 import { useAuth, useFirestore, setDocumentNonBlocking } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc } from 'firebase/firestore';
@@ -20,9 +20,13 @@ const ROLE_METADATA = {
   'financial-analyst': { collection: 'roles_financialAnalysts', label: 'Financial Analyst' },
 };
 
+// The "Gatekeeper" key for administrative access
+const ADMIN_SECRET_KEY = "FLEET-ADMIN-2024";
+
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [authKey, setAuthKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isEmailInUse, setIsEmailInUse] = useState(false);
@@ -31,25 +35,24 @@ export default function RegisterPage() {
   const db = useFirestore();
 
   /**
-   * Logic-Based Role Assignment (RBAC Engine)
-   * The system automatically identifies the user's role based on their 
-   * professional identity context (keywords in email).
-   * 
-   * SECURITY UPDATE: Fleet Manager is no longer the default.
+   * Secure Role Determination Logic
+   * 1. Check for the hardcoded System Admin Key first.
+   * 2. If no key, look for specialist keywords.
+   * 3. Default everyone else to 'dispatcher'.
    */
-  const determineRoleFromEmail = (email: string) => {
+  const determineRole = (email: string, key: string) => {
     const lowEmail = email.toLowerCase();
     
-    // Explicit Admin/Management keywords required for Fleet Manager
-    if (lowEmail.includes('admin') || lowEmail.includes('manager') || lowEmail.includes('owner')) {
+    // Administrative Access is ONLY granted via the secret System Key
+    if (key.trim() === ADMIN_SECRET_KEY) {
       return 'fleet-manager';
     }
     
-    // Specialist Logistics keywords
+    // Specialist Logistics keywords for standard roles
     if (lowEmail.includes('safety') || lowEmail.includes('compliance')) return 'safety-officer';
     if (lowEmail.includes('finance') || lowEmail.includes('audit') || lowEmail.includes('account')) return 'financial-analyst';
     
-    // Default to Dispatcher for all other logistics staff
+    // Strict Default: All other users are Dispatchers (Limited Access)
     return 'dispatcher'; 
   };
 
@@ -60,8 +63,8 @@ export default function RegisterPage() {
     setIsEmailInUse(false);
     
     try {
-      // 1. Determine role before account creation using the restricted identity engine
-      const roleId = determineRoleFromEmail(email);
+      // 1. Determine role using the secure identity engine
+      const roleId = determineRole(email, authKey);
       const roleConfig = ROLE_METADATA[roleId as keyof typeof ROLE_METADATA];
 
       // 2. Authenticate with Firebase Auth
@@ -82,7 +85,7 @@ export default function RegisterPage() {
         accessScope: `System-generated access for the ${roleConfig.label} role.`
       }, { merge: true });
 
-      // 5. Redirect immediately to the centralized dashboard
+      // 5. Redirect immediately
       router.push('/dashboard');
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') {
@@ -106,9 +109,9 @@ export default function RegisterPage() {
 
       <Card className="w-full max-w-md border-none shadow-xl bg-white rounded-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
         <CardHeader className="space-y-2 pb-8 pt-8 text-center">
-          <CardTitle className="text-2xl font-bold font-headline">Identity Verification</CardTitle>
+          <CardTitle className="text-2xl font-bold font-headline text-slate-900">Secure Provisioning</CardTitle>
           <CardDescription className="text-slate-500">
-            Automated workspace provisioning for logistics professionals.
+            Automated workspace setup for verified logistics personnel.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -122,7 +125,7 @@ export default function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="h-12 rounded-xl bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
+                className="h-12 rounded-xl bg-slate-50/50 border-slate-200 focus:bg-white transition-all shadow-sm"
               />
             </div>
             <div className="space-y-2">
@@ -134,18 +137,24 @@ export default function RegisterPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="h-12 rounded-xl bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
+                className="h-12 rounded-xl bg-slate-50/50 border-slate-200 focus:bg-white transition-all shadow-sm"
               />
             </div>
 
-            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
-              <div className="flex items-center gap-2 text-primary font-black uppercase tracking-[0.15em] text-[10px]">
-                <ShieldCheck className="w-4 h-4" />
-                Access Control Logic
+            <div className="pt-4 border-t border-slate-100">
+              <div className="flex items-center gap-2 mb-3">
+                <KeyRound className="w-4 h-4 text-primary" />
+                <Label htmlFor="authKey" className="font-bold text-slate-700">System Authorization Key</Label>
               </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
-                Roles are assigned based on email keywords. General accounts now default to <span className="text-slate-900 font-bold italic">Dispatcher</span> access. 
-                <span className="text-slate-900 font-bold">Fleet Manager</span> (Admin) role requires keywords like <span className="text-slate-900 font-bold">admin</span> or <span className="text-slate-900 font-bold">manager</span>.
+              <Input 
+                id="authKey" 
+                placeholder="Required for Administrative Access"
+                value={authKey}
+                onChange={(e) => setAuthKey(e.target.value)}
+                className="h-12 rounded-xl bg-slate-900 text-white placeholder:text-slate-500 border-none focus:ring-2 focus:ring-primary/50 transition-all font-mono"
+              />
+              <p className="mt-2 text-[10px] text-slate-400 font-medium">
+                Admin role is locked. Leave blank to register as a <span className="text-slate-600 font-bold">Dispatcher</span>.
               </p>
             </div>
 
@@ -166,9 +175,9 @@ export default function RegisterPage() {
             <Button 
               type="submit" 
               disabled={loading}
-              className="w-full h-12 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold text-lg shadow-lg shadow-primary/20 transition-all active:scale-95"
+              className="w-full h-12 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold text-lg shadow-lg shadow-primary/20 transition-all active:scale-95 mt-2"
             >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : "Verify Identity & Open Dashboard"}
+              {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : "Verify & Initialize Dashboard"}
             </Button>
           </form>
         </CardContent>
