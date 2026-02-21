@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect } from 'react';
@@ -46,7 +45,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return doc(db, 'roles_fleetManagers', user.uid);
   }, [db, user]);
 
-  const { data: roleDoc, isLoading: isRoleLoading } = useDoc(roleRef);
+  const { data: roleDoc, isLoading: isRoleLoading, error: roleError } = useDoc(roleRef);
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -55,8 +54,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [user, isUserLoading, router]);
 
   // PROTOTYPE AUTO-PROVISIONING: 
-  // If the user is logged in but has no role document (e.g. they registered before rules were updated 
-  // or logged in without registering), create it now.
+  // If the user is logged in but has no role document, create it now.
+  // We use merge: true to handle upserts gracefully.
   useEffect(() => {
     if (user && !isRoleLoading && !roleDoc) {
       // Initialize User Profile
