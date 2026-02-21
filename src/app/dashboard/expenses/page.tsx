@@ -6,8 +6,7 @@ import {
   useFirestore, 
   useMemoFirebase, 
   setDocumentNonBlocking,
-  useUser,
-  useDoc
+  useUser
 } from '@/firebase';
 import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -33,7 +32,6 @@ import {
   Loader2,
   Fuel,
   Wallet,
-  MoreHorizontal,
   LayoutGrid,
   Database
 } from 'lucide-react';
@@ -78,7 +76,6 @@ export default function TripExpensePage() {
 
     const timestamp = new Date().toISOString();
 
-    // 1. Handle Fuel Expense if provided
     if (Number(formData.fuelCost) > 0) {
       const fuelId = `FUEL-${Math.floor(1000 + Math.random() * 9000)}`;
       setDocumentNonBlocking(doc(firestore, 'fuel_logs', fuelId), {
@@ -86,14 +83,13 @@ export default function TripExpensePage() {
         vehicleId: selectedTrip.vehicleId,
         tripId: selectedTrip.id,
         cost: Number(formData.fuelCost),
-        liters: 0, // Placeholder
+        liters: 0,
         date: timestamp,
         odometerKm: selectedTrip.startOdometerKm,
         createdAt: serverTimestamp()
       }, { merge: true });
     }
 
-    // 2. Handle Misc Expense if provided
     if (Number(formData.miscExpense) > 0) {
       const expId = `EXP-${Math.floor(1000 + Math.random() * 9000)}`;
       setDocumentNonBlocking(doc(firestore, 'expenses', expId), {
@@ -150,18 +146,18 @@ export default function TripExpensePage() {
         <div className="flex items-center gap-3">
           <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90 text-white rounded-xl h-12 px-8 font-black shadow-lg shadow-primary/20 transition-all active:scale-95 uppercase tracking-tighter">
+              <Button className="bg-primary hover:bg-primary/90 text-white rounded-xl h-12 px-8 font-bold shadow-lg shadow-primary/20 transition-all active:scale-95 uppercase tracking-tighter font-headline">
                 <Plus className="w-5 h-5 mr-2" /> Add an Expense
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[450px] rounded-[2rem] border-none shadow-2xl p-8 bg-white">
               <DialogHeader className="pb-4 border-b">
                 <DialogTitle className="text-2xl font-black font-headline text-primary uppercase tracking-tighter">New Expense Log</DialogTitle>
-                <DialogDescription>Attach operational costs to a specific trip ID.</DialogDescription>
+                <DialogDescription className="font-medium text-slate-500">Attach operational costs to a specific trip ID.</DialogDescription>
               </DialogHeader>
-              <div className="grid gap-6 py-6">
+              <div className="grid gap-6 py-6 font-body">
                 <div className="grid gap-2">
-                  <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-[0.2em]">Select Active Trip ID</Label>
+                  <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-[0.2em] font-headline">Select Active Trip ID</Label>
                   <Select value={formData.tripId} onValueChange={(val) => setFormData({...formData, tripId: val})}>
                     <SelectTrigger className="rounded-2xl h-12 bg-slate-50 border-slate-200">
                       <SelectValue placeholder="Trip ID Reference" />
@@ -175,7 +171,7 @@ export default function TripExpensePage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-[0.2em]">Fuel Cost (PKR)</Label>
+                    <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-[0.2em] font-headline">Fuel Cost (PKR)</Label>
                     <div className="relative">
                       <Fuel className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <Input 
@@ -188,7 +184,7 @@ export default function TripExpensePage() {
                     </div>
                   </div>
                   <div className="grid gap-2">
-                    <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-[0.2em]">Misc Expense (PKR)</Label>
+                    <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-[0.2em] font-headline">Misc Expense (PKR)</Label>
                     <div className="relative">
                       <Wallet className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <Input 
@@ -202,7 +198,7 @@ export default function TripExpensePage() {
                   </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-[0.2em]">Misc Description</Label>
+                  <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-[0.2em] font-headline">Misc Description</Label>
                   <Input 
                     placeholder="e.g. Tolls, Parking, Maintenance"
                     value={formData.description}
@@ -212,8 +208,8 @@ export default function TripExpensePage() {
                 </div>
               </div>
               <DialogFooter className="flex gap-4 pt-4 border-t">
-                <Button onClick={handleCreateExpense} className="flex-1 bg-primary hover:bg-primary/90 text-white rounded-2xl h-14 font-black uppercase text-sm tracking-widest shadow-xl shadow-primary/20">Create Record</Button>
-                <Button variant="outline" onClick={() => setIsModalOpen(false)} className="flex-1 rounded-2xl h-14 font-bold border-2 border-slate-100 text-slate-400 hover:text-red-500 hover:border-red-100 transition-all">Cancel</Button>
+                <Button onClick={handleCreateExpense} className="flex-1 bg-primary hover:bg-primary/90 text-white rounded-2xl h-14 font-black uppercase text-sm tracking-widest shadow-xl shadow-primary/20 font-headline">Create Record</Button>
+                <Button variant="outline" onClick={() => setIsModalOpen(false)} className="flex-1 rounded-2xl h-14 font-bold border-2 border-slate-100 text-slate-400 hover:text-red-500 hover:border-red-100 transition-all font-headline">Cancel</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -229,10 +225,10 @@ export default function TripExpensePage() {
                 placeholder="Search trip ID, driver, or route..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-14 h-14 border-none bg-white shadow-xl shadow-slate-200/50 rounded-[1.25rem] text-lg font-medium"
+                className="pl-14 h-14 border-none bg-white shadow-xl shadow-slate-200/50 rounded-[1.25rem] text-lg font-medium font-body"
               />
             </div>
-            <div className="flex items-center gap-3 w-full lg:w-auto overflow-x-auto pb-2 lg:pb-0">
+            <div className="flex items-center gap-3 w-full lg:w-auto overflow-x-auto pb-2 lg:pb-0 font-headline">
               <Button variant="outline" className="rounded-xl h-12 px-6 border-slate-200 bg-white font-bold text-xs uppercase tracking-widest text-slate-500 hover:text-primary transition-all">
                 <LayoutGrid className="w-4 h-4 mr-2" /> Group by
               </Button>
@@ -249,20 +245,20 @@ export default function TripExpensePage() {
           <Table>
             <TableHeader className="bg-white border-b-2">
               <TableRow className="border-none hover:bg-transparent">
-                <TableHead className="h-20 pl-10 text-[10px] font-black uppercase text-primary tracking-[0.25em]">Trip ID</TableHead>
-                <TableHead className="h-20 text-[10px] font-black uppercase text-primary tracking-[0.25em]">Driver</TableHead>
-                <TableHead className="h-20 text-[10px] font-black uppercase text-primary tracking-[0.25em]">Distance</TableHead>
-                <TableHead className="h-20 text-[10px] font-black uppercase text-primary tracking-[0.25em]">Fuel Expense</TableHead>
-                <TableHead className="h-20 text-[10px] font-black uppercase text-primary tracking-[0.25em]">Misc. Expense</TableHead>
-                <TableHead className="h-20 pr-10 text-right text-[10px] font-black uppercase text-primary tracking-[0.25em]">Status</TableHead>
+                <TableHead className="h-20 pl-10 text-[10px] font-black uppercase text-primary tracking-[0.25em] font-headline">Trip ID</TableHead>
+                <TableHead className="h-20 text-[10px] font-black uppercase text-primary tracking-[0.25em] font-headline">Driver</TableHead>
+                <TableHead className="h-20 text-[10px] font-black uppercase text-primary tracking-[0.25em] font-headline">Distance</TableHead>
+                <TableHead className="h-20 text-[10px] font-black uppercase text-primary tracking-[0.25em] font-headline">Fuel Expense</TableHead>
+                <TableHead className="h-20 text-[10px] font-black uppercase text-primary tracking-[0.25em] font-headline">Misc. Expense</TableHead>
+                <TableHead className="h-20 pr-10 text-right text-[10px] font-black uppercase text-primary tracking-[0.25em] font-headline">Status</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody className="font-body">
               {isLoading ? (
                 <TableRow>
                   <TableCell colSpan={6} className="h-64 text-center">
                     <Loader2 className="w-12 h-12 animate-spin mx-auto text-primary/30" />
-                    <p className="mt-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Syncing Financial Ledger...</p>
+                    <p className="mt-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 font-headline">Syncing Financial Ledger...</p>
                   </TableCell>
                 </TableRow>
               ) : filteredTrips.length > 0 ? (
@@ -270,8 +266,8 @@ export default function TripExpensePage() {
                   <TableRow key={trip.id} className="h-24 border-slate-50 hover:bg-slate-50/50 transition-all group">
                     <TableCell className="pl-10">
                       <div className="flex flex-col">
-                        <span className="font-black text-slate-900 text-lg tracking-tighter group-hover:text-primary transition-colors">{trip.id}</span>
-                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{trip.origin} → {trip.destination}</span>
+                        <span className="font-black text-slate-900 text-lg tracking-tighter group-hover:text-primary transition-colors font-headline uppercase italic">{trip.id}</span>
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-headline">{trip.origin} → {trip.destination}</span>
                       </div>
                     </TableCell>
                     <TableCell className="font-bold text-slate-700 text-base">{trip.driverName}</TableCell>
@@ -283,18 +279,18 @@ export default function TripExpensePage() {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Fuel className="w-4 h-4 text-emerald-500 opacity-50" />
-                        <span className="font-black text-slate-900 text-base italic">Rs. {trip.fuelCost.toLocaleString()}</span>
+                        <span className="font-black text-slate-900 text-base italic font-headline">Rs. {trip.fuelCost.toLocaleString()}</span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Wallet className="w-4 h-4 text-blue-500 opacity-50" />
-                        <span className="font-black text-slate-900 text-base italic">Rs. {trip.miscCost.toLocaleString()}</span>
+                        <span className="font-black text-slate-900 text-base italic font-headline">Rs. {trip.miscCost.toLocaleString()}</span>
                       </div>
                     </TableCell>
                     <TableCell className="pr-10 text-right">
                       <Badge className={cn(
-                        "rounded-xl px-5 py-1.5 text-[10px] font-black uppercase tracking-widest border-none shadow-sm",
+                        "rounded-xl px-5 py-1.5 text-[10px] font-black uppercase tracking-widest border-none shadow-sm font-headline",
                         trip.status === 'Completed' ? "bg-emerald-100 text-emerald-700" :
                         trip.status === 'In Transit' ? "bg-amber-100 text-amber-700" :
                         "bg-blue-100 text-blue-700"
