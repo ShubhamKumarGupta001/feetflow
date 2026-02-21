@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Truck, Loader2, ShieldCheck, AlertCircle, Info, Mail } from 'lucide-react';
+import { Truck, Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
 import { useAuth, useFirestore, setDocumentNonBlocking } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc } from 'firebase/firestore';
@@ -34,22 +34,23 @@ export default function RegisterPage() {
    * Logic-Based Role Assignment (RBAC Engine)
    * The system automatically identifies the user's role based on their 
    * professional identity context (keywords in email).
+   * 
+   * SECURITY UPDATE: Fleet Manager is no longer the default.
    */
   const determineRoleFromEmail = (email: string) => {
     const lowEmail = email.toLowerCase();
     
-    // Explicit Admin/Management keywords
+    // Explicit Admin/Management keywords required for Fleet Manager
     if (lowEmail.includes('admin') || lowEmail.includes('manager') || lowEmail.includes('owner')) {
       return 'fleet-manager';
     }
     
     // Specialist Logistics keywords
-    if (lowEmail.includes('dispatch')) return 'dispatcher';
     if (lowEmail.includes('safety') || lowEmail.includes('compliance')) return 'safety-officer';
     if (lowEmail.includes('finance') || lowEmail.includes('audit') || lowEmail.includes('account')) return 'financial-analyst';
     
-    // Default to the highest authority for general professional accounts
-    return 'fleet-manager'; 
+    // Default to Dispatcher for all other logistics staff
+    return 'dispatcher'; 
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -59,7 +60,7 @@ export default function RegisterPage() {
     setIsEmailInUse(false);
     
     try {
-      // 1. Determine role before account creation using the identity engine
+      // 1. Determine role before account creation using the restricted identity engine
       const roleId = determineRoleFromEmail(email);
       const roleConfig = ROLE_METADATA[roleId as keyof typeof ROLE_METADATA];
 
@@ -75,11 +76,10 @@ export default function RegisterPage() {
       }, { merge: true });
 
       // 4. Provision Specific Role Collection (Non-blocking)
-      // This creates the 'existence-based' flag that our Security Rules require.
       setDocumentNonBlocking(doc(db, roleConfig.collection, user.uid), {
         id: user.uid,
         name: roleConfig.label,
-        accessScope: `System-generated administrative access for the ${roleConfig.label} role.`
+        accessScope: `System-generated access for the ${roleConfig.label} role.`
       }, { merge: true });
 
       // 5. Redirect immediately to the centralized dashboard
@@ -118,7 +118,7 @@ export default function RegisterPage() {
               <Input 
                 id="email" 
                 type="email" 
-                placeholder="admin@fleetflow.com" 
+                placeholder="staff@fleetflow.com" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -141,13 +141,11 @@ export default function RegisterPage() {
             <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
               <div className="flex items-center gap-2 text-primary font-black uppercase tracking-[0.15em] text-[10px]">
                 <ShieldCheck className="w-4 h-4" />
-                Automatic Role Detection
+                Access Control Logic
               </div>
               <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
-                Our AI-driven engine assigns access based on professional keywords. 
-                Use <span className="text-slate-900 font-bold">admin</span>, <span className="text-slate-900 font-bold">dispatch</span>, 
-                <span className="text-slate-900 font-bold">safety</span>, or <span className="text-slate-900 font-bold">finance</span> in your email. 
-                Accounts default to <span className="text-slate-900 font-bold italic">Fleet Manager</span> administrative access.
+                Roles are assigned based on email keywords. General accounts now default to <span className="text-slate-900 font-bold italic">Dispatcher</span> access. 
+                <span className="text-slate-900 font-bold">Fleet Manager</span> (Admin) role requires keywords like <span className="text-slate-900 font-bold">admin</span> or <span className="text-slate-900 font-bold">manager</span>.
               </p>
             </div>
 
@@ -170,7 +168,7 @@ export default function RegisterPage() {
               disabled={loading}
               className="w-full h-12 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold text-lg shadow-lg shadow-primary/20 transition-all active:scale-95"
             >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : "Authenticate & Open Workspace"}
+              {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : "Verify Identity & Open Dashboard"}
             </Button>
           </form>
         </CardContent>
