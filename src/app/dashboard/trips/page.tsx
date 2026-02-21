@@ -42,7 +42,6 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-// Define the 4 tracking stages with professional styling
 const TRACKING_STAGES = [
   { id: 'Scheduled', label: 'Scheduled', color: 'bg-slate-400', icon: Calendar, actionLabel: 'Launch Dispatch' },
   { id: 'Dispatched', label: 'Dispatched', color: 'bg-blue-500', icon: Navigation, actionLabel: 'Initiate Transit' },
@@ -82,7 +81,8 @@ export default function TripsPage() {
   }, [vehicles]);
 
   const availableDrivers = useMemo(() => {
-    return drivers?.filter(d => d.status === 'On Duty' || d.status === 'Available') || [];
+    // BUSINESS RULE: Driver must be strictly "Available" (No Suspensions, No Expiries)
+    return drivers?.filter(d => d.status === 'Available') || [];
   }, [drivers]);
 
   const handleDispatch = async (e: React.FormEvent) => {
@@ -107,7 +107,6 @@ export default function TripsPage() {
         variant: "destructive", 
         title: "PAYLOAD OVERLOAD", 
         description: `Error: ${cargoWeight}kg exceeds ${vehicle?.name}'s limit of ${vehicleLimit}kg.`,
-        duration: 20000,
       });
       return;
     }
@@ -134,10 +133,10 @@ export default function TripsPage() {
       updateDocumentNonBlocking(doc(firestore, 'vehicles', formData.vehicleId), { status: 'On Trip' });
       updateDocumentNonBlocking(doc(firestore, 'drivers', formData.driverId), { status: 'On Trip' });
 
-      toast({ title: "Trip Scheduled", description: `${tripId} has been added to the queue.` });
+      toast({ title: "Trip Scheduled", description: `${tripId} added to queue.` });
       setFormData({ vehicleId: '', driverId: '', cargoWeightKg: '', origin: '', destination: '' });
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Dispatch Failed", description: "Could not sync with the ledger." });
+      toast({ variant: "destructive", title: "Dispatch Failed", description: "Ledger sync error." });
     } finally {
       setIsSubmitting(false);
     }
@@ -175,7 +174,7 @@ export default function TripsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold font-headline text-slate-900 uppercase tracking-tighter">Trip Command Center</h2>
-          <p className="text-slate-500 font-medium">Precision Cargo Tracking &amp; Real-Time Logistics Lifecycle</p>
+          <p className="text-slate-500 font-medium">Precision Cargo Tracking & Real-Time Logistics</p>
         </div>
       </div>
 
@@ -245,44 +244,21 @@ export default function TripsPage() {
                         </TableCell>
                         <TableCell className="min-w-[420px]">
                           <div className="relative flex items-center justify-between w-full pr-12">
-                            {/* Track Background (Recessed Glass Pipe) */}
                             <div className="absolute top-1/2 left-0 w-full h-[6px] bg-slate-100 -translate-y-1/2 z-0 rounded-full overflow-hidden">
-                              {/* Scanning Light Effect for Inactive Parts */}
                               {!isCompleted && (
                                 <div className="absolute top-0 h-full w-40 bg-gradient-to-r from-transparent via-primary/5 to-transparent animate-[scan_4s_linear_infinite]" />
                               )}
                             </div>
                             
-                            {/* Animated Progress Track (Active Data Flow) */}
                             <div 
                               className={cn(
                                 "absolute top-1/2 left-0 h-[6px] transition-all duration-1000 ease-in-out -translate-y-1/2 z-10 rounded-full",
-                                isCompleted ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]" : "bg-primary shadow-[0_0_15px_rgba(30,64,175,0.4)]"
+                                isCompleted ? "bg-emerald-500" : "bg-primary"
                               )}
                               style={{ 
                                 width: `${(currentStageIndex / (TRACKING_STAGES.length - 1)) * 100}%`
                               }}
-                            >
-                              {/* Glowing Kinetic Comet Pulse */}
-                              {!isCompleted && currentStageIndex > 0 && (
-                                <div className="absolute top-1/2 right-0 -translate-y-1/2 w-20 h-[10px] bg-gradient-to-l from-white/60 to-transparent blur-[3px] rounded-full animate-pulse" />
-                              )}
-                            </div>
-                            
-                            <style jsx>{`
-                              @keyframes scan {
-                                0% { transform: translateX(-100%); }
-                                100% { transform: translateX(800%); }
-                              }
-                              @keyframes radar {
-                                0% { transform: scale(1); opacity: 0.8; }
-                                100% { transform: scale(1.6); opacity: 0; }
-                              }
-                              @keyframes breathe {
-                                0%, 100% { transform: scale(1); }
-                                50% { transform: scale(1.05); }
-                              }
-                            `}</style>
+                            />
                             
                             {TRACKING_STAGES.map((stage, idx) => {
                               const StageIcon = stage.icon;
@@ -291,15 +267,10 @@ export default function TripsPage() {
                               
                               return (
                                 <div key={stage.id} className="relative z-20 flex flex-col items-center">
-                                  {/* Radar Pulse for Active Hub */}
-                                  {isStageActive && !isCompleted && (
-                                    <div className="absolute inset-0 rounded-2xl bg-primary/30 animate-[radar_2s_ease-out_infinite]" />
-                                  )}
-                                  
                                   <div className={cn(
                                     "w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-700 border-2 relative",
                                     isStageCompleted ? "bg-primary border-primary text-white shadow-lg" :
-                                    isStageActive ? "bg-white border-primary text-primary shadow-xl ring-4 ring-primary/5 animate-[breathe_3s_ease-in-out_infinite]" :
+                                    isStageActive ? "bg-white border-primary text-primary shadow-xl" :
                                     "bg-white border-slate-200 text-slate-300"
                                   )}>
                                     <StageIcon className={cn("w-6 h-6 relative z-10")} />
@@ -308,15 +279,10 @@ export default function TripsPage() {
                                   <div className="absolute -bottom-10 flex flex-col items-center">
                                     <span className={cn(
                                       "whitespace-nowrap text-[9px] font-black uppercase tracking-tighter transition-all duration-500",
-                                      isStageActive ? "text-primary scale-110" : isStageCompleted ? "text-slate-600" : "text-slate-300"
+                                      isStageActive ? "text-primary scale-110" : "text-slate-300"
                                     )}>
                                       {stage.label}
                                     </span>
-                                    {isStageActive && !isCompleted && (
-                                      <span className="text-[8px] font-bold text-slate-400 mt-1 whitespace-nowrap flex items-center gap-1 opacity-0 animate-in fade-in slide-in-from-top-1 duration-1000 fill-mode-forwards">
-                                        <Clock className="w-2.5 h-2.5" /> ETA: {new Date(new Date(trip.dispatchDate).getTime() + 48 * 60 * 60 * 1000).toLocaleDateString()}
-                                      </span>
-                                    )}
                                   </div>
                                 </div>
                               );
@@ -329,9 +295,9 @@ export default function TripsPage() {
                               size="sm" 
                               variant="outline"
                               onClick={() => advanceStage(trip)}
-                              className="h-11 rounded-xl border-primary/20 text-primary hover:bg-primary hover:text-white font-black text-[10px] uppercase tracking-widest transition-all shadow-sm active:scale-95 px-5 group/btn"
+                              className="h-11 rounded-xl border-primary/20 text-primary hover:bg-primary hover:text-white font-black text-[10px] uppercase tracking-widest transition-all px-5"
                             >
-                              {activeStage?.actionLabel} <ArrowRight className="w-3.5 h-3.5 ml-2 group-hover/btn:translate-x-1 transition-transform" />
+                              {activeStage?.actionLabel} <ArrowRight className="w-3.5 h-3.5 ml-2" />
                             </Button>
                           ) : (
                             <div className="flex items-center justify-end gap-2 text-emerald-600 font-black text-[10px] uppercase tracking-[0.2em] bg-emerald-50 px-5 py-2.5 rounded-xl border border-emerald-100">
@@ -346,23 +312,13 @@ export default function TripsPage() {
                 </TableBody>
               </Table>
             )}
-
-            {!isLoading && filteredTrips.length === 0 && (
-              <div className="py-32 text-center flex flex-col items-center justify-center">
-                <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mb-6 shadow-inner">
-                  <ClipboardList className="w-10 h-10 text-slate-200" />
-                </div>
-                <h3 className="text-xl font-bold text-slate-900 font-headline uppercase tracking-tighter">No Active Deployments</h3>
-                <p className="text-slate-400 mt-2 font-medium max-w-xs mx-auto text-sm">Initiate your first cargo lifecycle in the Deployment Hub.</p>
-              </div>
-            )}
           </CardContent>
         </Card>
 
         <Card className="border-none shadow-xl bg-white rounded-3xl overflow-hidden self-start">
           <CardHeader className="p-8 border-b bg-primary/5">
             <CardTitle className="text-2xl font-bold font-headline uppercase tracking-tighter text-primary">Deployment Hub</CardTitle>
-            <CardDescription className="font-medium text-slate-500">Initiate new cargo tracking lifecycle.</CardDescription>
+            <CardDescription className="font-medium text-slate-500">Initiate new cargo lifecycle.</CardDescription>
           </CardHeader>
           <CardContent className="p-8">
             <form onSubmit={handleDispatch} className="space-y-6">
@@ -370,21 +326,14 @@ export default function TripsPage() {
                 <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-widest">Select Ready Asset</Label>
                 <Select value={formData.vehicleId} onValueChange={(val) => setFormData({...formData, vehicleId: val})}>
                   <SelectTrigger className="rounded-2xl h-12 border-slate-200 bg-slate-50/50">
-                    <SelectValue placeholder={isVehiclesLoading ? "Syncing Fleet..." : "Asset Identity"} />
+                    <SelectValue placeholder="Asset Identity" />
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-none shadow-2xl">
-                    {availableVehicles.length > 0 ? (
-                      availableVehicles.map(v => (
-                        <SelectItem key={v.id} value={v.id} className="py-3 px-4">
-                          <div className="flex flex-col">
-                            <span className="font-bold">{v.name} ({v.licensePlate})</span>
-                            <span className="text-[10px] text-slate-400 uppercase font-black">Limit: {v.maxCapacityKg}KG</span>
-                          </div>
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <div className="p-4 text-center text-xs text-slate-400 italic">No available assets.</div>
-                    )}
+                    {availableVehicles.map(v => (
+                      <SelectItem key={v.id} value={v.id}>
+                        {v.name} ({v.licensePlate})
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -405,24 +354,17 @@ export default function TripsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-widest">Assign Operator</Label>
+                <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-widest">Assign Operator (Available & Valid)</Label>
                 <Select value={formData.driverId} onValueChange={(val) => setFormData({...formData, driverId: val})}>
                   <SelectTrigger className="rounded-2xl h-12 border-slate-200 bg-slate-50/50">
-                    <SelectValue placeholder={isDriversLoading ? "Syncing Roster..." : "Driver Name"} />
+                    <SelectValue placeholder="Driver Name" />
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-none shadow-2xl">
-                    {availableDrivers.length > 0 ? (
-                      availableDrivers.map(d => (
-                        <SelectItem key={d.id} value={d.id} className="py-3 px-4">
-                          <div className="flex flex-col">
-                            <span className="font-bold">{d.name}</span>
-                            <span className="text-[10px] text-slate-400 uppercase font-black">{d.licenseCategory} Certified</span>
-                          </div>
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <div className="p-4 text-center text-xs text-slate-400 italic">No drivers on duty.</div>
-                    )}
+                    {availableDrivers.map(d => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name} ({d.licenseCategory})
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -430,27 +372,20 @@ export default function TripsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-widest">Origin</Label>
-                  <Input value={formData.origin} onChange={(e) => setFormData({...formData, origin: e.target.value})} className="rounded-2xl h-12 bg-slate-50/50 border-slate-200" placeholder="Source Hub" required />
+                  <Input value={formData.origin} onChange={(e) => setFormData({...formData, origin: e.target.value})} className="rounded-2xl h-12 bg-slate-50/50 border-slate-200" required />
                 </div>
                 <div className="space-y-2">
                   <Label className="font-bold text-slate-700 uppercase text-[10px] tracking-widest">Destination</Label>
-                  <Input value={formData.destination} onChange={(e) => setFormData({...formData, destination: e.target.value})} className="rounded-2xl h-12 bg-slate-50/50 border-slate-200" placeholder="Target Point" required />
+                  <Input value={formData.destination} onChange={(e) => setFormData({...formData, destination: e.target.value})} className="rounded-2xl h-12 bg-slate-50/50 border-slate-200" required />
                 </div>
               </div>
 
               <Button 
                 type="submit" 
-                disabled={isVehiclesLoading || isDriversLoading || isSubmitting}
-                className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl font-black text-lg shadow-2xl shadow-primary/30 transition-all active:scale-95 group"
+                disabled={isSubmitting}
+                className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl font-black text-lg shadow-2xl shadow-primary/30 transition-all active:scale-95"
               >
-                {isSubmitting ? (
-                  <Loader2 className="w-6 h-6 animate-spin" />
-                ) : (
-                  <>
-                    <Navigation className="w-5 h-5 mr-3 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" /> 
-                    Confirm Dispatch
-                  </>
-                )}
+                {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : "Confirm Dispatch"}
               </Button>
             </form>
           </CardContent>
