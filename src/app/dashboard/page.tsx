@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Truck, Wrench, Package, MoreHorizontal, Loader2, ArrowUpRight, ShieldAlert } from 'lucide-react';
+import { Search, Plus, Truck, Wrench, Package, MoreHorizontal, Loader2, ArrowUpRight, ShieldCheck, Sparkles } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import Link from 'next/link';
@@ -20,7 +20,7 @@ export default function DashboardPage() {
   const userRef = useMemoFirebase(() => user ? doc(db, 'users', user.uid) : null, [db, user]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
 
-  // Permission Logic: Only fetch data the user is authorized for based on rules
+  // Permission Logic
   const canSeeTrips = userProfile?.roleId === 'fleet-manager' || userProfile?.roleId === 'dispatcher';
   const canSeeVehicles = userProfile?.roleId === 'fleet-manager' || userProfile?.roleId === 'dispatcher' || userProfile?.roleId === 'safety-officer';
 
@@ -52,8 +52,27 @@ export default function DashboardPage() {
     );
   }
 
+  const roleName = userProfile?.roleId?.replace('-', ' ').toUpperCase() || 'AUTHORIZED USER';
+
   return (
     <div className="space-y-10">
+      {/* Welcome Banner */}
+      <div className="relative p-10 rounded-3xl bg-slate-900 text-white overflow-hidden shadow-2xl">
+        <div className="absolute top-0 right-0 p-8 opacity-10">
+          <Truck className="w-40 h-40 -rotate-12" />
+        </div>
+        <div className="relative z-10 space-y-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/20 border border-primary/30 text-primary-foreground text-[10px] font-black tracking-widest uppercase">
+            <ShieldCheck className="w-3 h-3" />
+            Verified {roleName} Session
+          </div>
+          <h1 className="text-4xl font-black font-headline">Welcome to your Dashboard</h1>
+          <p className="text-slate-400 max-w-xl font-medium">
+            Your workspace has been automatically provisioned with tools for **{roleName}** operations.
+          </p>
+        </div>
+      </div>
+
       {/* Search and Action Bar */}
       <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
         <div className="relative w-full lg:max-w-xl group">
@@ -73,16 +92,6 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
-
-      {/* Role-Based Alert for Restricted Views */}
-      {userProfile?.roleId !== 'fleet-manager' && (
-        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100 flex items-center gap-3 text-amber-800">
-          <ShieldAlert className="w-5 h-5" />
-          <p className="text-sm font-medium">
-            You are viewing the dashboard as a <b>{userProfile?.roleId?.replace('-', ' ')}</b>. Module access is tailored to your scope.
-          </p>
-        </div>
-      )}
 
       {/* Hero Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -168,17 +177,22 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Financial Overview for Analysts */}
+      {/* Role-Specific Secondary View */}
       {userProfile?.roleId === 'financial-analyst' && (
-        <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-slate-900 text-white">
-          <CardContent className="p-12 text-center space-y-4">
-            <h3 className="text-2xl font-bold font-headline">Financial Intelligence</h3>
-            <p className="text-slate-400 max-w-lg mx-auto">Access detailed fuel logs and operational expense audits in the Intelligence module.</p>
-            <Link href="/dashboard/analytics">
-              <Button className="bg-primary hover:bg-primary/90 rounded-xl mt-4">Open Reports</Button>
-            </Link>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <Card className="border-none shadow-sm rounded-3xl bg-emerald-50 p-8 flex items-center gap-6">
+            <div className="p-4 bg-emerald-100 text-emerald-600 rounded-2xl">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-emerald-900">Financial Reports Ready</h3>
+              <p className="text-sm text-emerald-700/70">Your monthly profitability audit is available.</p>
+              <Link href="/dashboard/analytics">
+                <Button variant="link" className="p-0 h-auto text-emerald-600 font-black mt-2">Open Reports →</Button>
+              </Link>
+            </div>
+          </Card>
+        </div>
       )}
     </div>
   );

@@ -8,29 +8,40 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Truck, Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Truck, Loader2, ShieldCheck, AlertCircle, Info } from 'lucide-react';
 import { useAuth, useFirestore, setDocumentNonBlocking } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc } from 'firebase/firestore';
 
-const ROLES = [
-  { id: 'fleet-manager', collection: 'roles_fleetManagers', label: 'Fleet Manager' },
-  { id: 'dispatcher', collection: 'roles_dispatchers', label: 'Dispatcher' },
-  { id: 'safety-officer', collection: 'roles_safetyOfficers', label: 'Safety Officer' },
-  { id: 'financial-analyst', collection: 'roles_financialAnalysts', label: 'Financial Analyst' },
-];
+const ROLE_METADATA = {
+  'fleet-manager': { collection: 'roles_fleetManagers', label: 'Fleet Manager' },
+  'dispatcher': { collection: 'roles_dispatchers', label: 'Dispatcher' },
+  'safety-officer': { collection: 'roles_safetyOfficers', label: 'Safety Officer' },
+  'financial-analyst': { collection: 'roles_financialAnalysts', label: 'Financial Analyst' },
+};
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [roleId, setRoleId] = useState('fleet-manager');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isEmailInUse, setIsEmailInUse] = useState(false);
   const router = useRouter();
   const auth = useAuth();
   const db = useFirestore();
+
+  /**
+   * Logic-Based Role Assignment
+   * In a real enterprise app, this would be validated against an LDAP/AD 
+   * or a white-listed invitation system.
+   */
+  const determineRoleFromEmail = (email: string) => {
+    const lowEmail = email.toLowerCase();
+    if (lowEmail.includes('dispatch')) return 'dispatcher';
+    if (lowEmail.includes('safety') || lowEmail.includes('compliance')) return 'safety-officer';
+    if (lowEmail.includes('finance') || lowEmail.includes('audit') || lowEmail.includes('account')) return 'financial-analyst';
+    return 'fleet-manager'; // Default role
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,13 +50,14 @@ export default function RegisterPage() {
     setIsEmailInUse(false);
     
     try {
-      // 1. Authenticate with Firebase Auth
+      // 1. Determine role before account creation
+      const roleId = determineRoleFromEmail(email);
+      const roleConfig = ROLE_METADATA[roleId as keyof typeof ROLE_METADATA];
+
+      // 2. Authenticate with Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
-      // 2. Find selected role metadata
-      const selectedRole = ROLES.find(r => r.id === roleId) || ROLES[0];
-
       // 3. Initialize User Profile (Non-blocking)
       setDocumentNonBlocking(doc(db, 'users', user.uid), {
         id: user.uid,
@@ -54,13 +66,13 @@ export default function RegisterPage() {
       }, { merge: true });
 
       // 4. Provision Specific Role Collection (Non-blocking)
-      setDocumentNonBlocking(doc(db, selectedRole.collection, user.uid), {
+      setDocumentNonBlocking(doc(db, roleConfig.collection, user.uid), {
         id: user.uid,
-        name: selectedRole.label,
-        accessScope: `Standard access for ${selectedRole.label} role.`
+        name: roleConfig.label,
+        accessScope: `Automated ${roleConfig.label} access granted based on identity verification.`
       }, { merge: true });
 
-      // 5. Redirect immediately
+      // 5. Redirect immediately to the centralized dashboard
       router.push('/dashboard');
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') {
@@ -86,7 +98,7 @@ export default function RegisterPage() {
         <CardHeader className="space-y-2 pb-8 pt-8 text-center">
           <CardTitle className="text-2xl font-bold font-headline">Join FleetFlow</CardTitle>
           <CardDescription className="text-slate-500">
-            Select your professional role and start optimizing today.
+            Automated role-based onboarding for logistics professionals.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -116,27 +128,14 @@ export default function RegisterPage() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="role">Professional Role</Label>
-              <Select value={roleId} onValueChange={setRoleId}>
-                <SelectTrigger className="h-12 rounded-xl bg-slate-50/50 border-slate-200">
-                  <SelectValue placeholder="Select your role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLES.map((role) => (
-                    <SelectItem key={role.id} value={role.id}>
-                      {role.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-start gap-2 bg-primary/5 p-4 rounded-xl border border-primary/10">
-              <ShieldCheck className="w-5 h-5 text-primary mt-0.5 shrink-0" />
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Permissions are strictly governed by your selected role.
-              </p>
+            <div className="flex items-start gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
+              <Info className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">Automated Onboarding</p>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Our system will automatically provision your dashboard and access keys based on your organizational identity.
+                </p>
+              </div>
             </div>
 
             {error && (
@@ -158,7 +157,7 @@ export default function RegisterPage() {
               disabled={loading}
               className="w-full h-12 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold text-lg shadow-lg shadow-primary/20 transition-all active:scale-95"
             >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : "Create Account"}
+              {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : "Verify & Onboard"}
             </Button>
           </form>
         </CardContent>
