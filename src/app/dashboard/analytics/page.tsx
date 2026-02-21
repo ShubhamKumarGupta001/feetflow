@@ -8,29 +8,36 @@ import {
 } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Download, Filter, TrendingUp, Fuel, BarChart3, Receipt, Loader2 } from 'lucide-react';
+import { Download, Filter, TrendingUp, Fuel, BarChart3, Receipt, Loader2, Database } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 
 export default function AnalyticsPage() {
   const db = useFirestore();
   
-  // Memoize collection references with stable dependencies to prevent infinite loops
+  // Memoize collection references
   const fuelRef = useMemoFirebase(() => collection(db, 'fuel_logs'), [db]);
   const expenseRef = useMemoFirebase(() => collection(db, 'expenses'), [db]);
   const tripRef = useMemoFirebase(() => collection(db, 'trips'), [db]);
+  const maintenanceRef = useMemoFirebase(() => collection(db, 'maintenance_logs'), [db]);
 
   const { data: fuelLogs, isLoading: fLoading } = useCollection(fuelRef);
   const { data: expenses, isLoading: eLoading } = useCollection(expenseRef);
   const { data: trips, isLoading: tLoading } = useCollection(tripRef);
+  const { data: maintenance, isLoading: mLoading } = useCollection(maintenanceRef);
 
+  const isLoading = fLoading || eLoading || tLoading || mLoading;
+
+  // Real-time KPI Calculations
   const stats = useMemo(() => {
     const totalFuel = fuelLogs?.reduce((acc, curr) => acc + (Number(curr.cost) || 0), 0) || 0;
     const totalRevenue = trips?.reduce((acc, curr) => acc + (Number(curr.revenue) || 0), 0) || 0;
     const totalExpense = expenses?.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
+    const totalMaintenance = maintenance?.reduce((acc, curr) => acc + (Number(curr.cost) || 0), 0) || 0;
     
-    const profit = totalRevenue - (totalFuel + totalExpense);
-    const roi = totalRevenue > 0 ? (profit / (totalFuel + totalExpense)) * 100 : 0;
+    const totalCost = totalFuel + totalExpense + totalMaintenance;
+    const profit = totalRevenue - totalCost;
+    const roi = totalCost > 0 ? (profit / totalCost) * 100 : 0;
 
     return [
       { 
@@ -58,50 +65,62 @@ export default function AnalyticsPage() {
         borderColor: "border-emerald-100"
       }
     ];
-  }, [fuelLogs, expenses, trips]);
+  }, [fuelLogs, expenses, trips, maintenance]);
 
-  const isLoading = fLoading || eLoading || tLoading;
+  // Derive Bar Chart Data from real Maintenance Logs
+  const costliestVehiclesData = useMemo(() => {
+    if (!maintenance) return [];
+    const costsByVehicle: Record<string, number> = {};
+    maintenance.forEach(log => {
+      costsByVehicle[log.vehicleId] = (costsByVehicle[log.vehicleId] || 0) + (Number(log.cost) || 0);
+    });
+    return Object.entries(costsByVehicle).map(([name, cost]) => ({ name, cost })).sort((a, b) => b.cost - a.cost).slice(0, 5);
+  }, [maintenance]);
 
-  const fuelEfficiencyData = [
-    { month: 'Jan', value: 5 }, { month: 'Feb', value: 7 }, { month: 'Mar', value: 6.5 },
-    { month: 'Apr', value: 8 }, { month: 'May', value: 9 }, { month: 'Jun', value: 8.5 }
-  ];
+  // Derive Line Chart Data from real Fuel Logs
+  const fuelTrendData = useMemo(() => {
+    if (!fuelLogs) return [];
+    // Group by month for a simplified trend
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthlyCosts: Record<string, number> = {};
+    
+    fuelLogs.forEach(log => {
+      const month = new Date(log.date).getMonth();
+      const monthName = months[month];
+      monthlyCosts[monthName] = (monthlyCosts[monthName] || 0) + (Number(log.cost) || 0);
+    });
 
-  const costliestVehiclesData = [
-    { name: 'V-001', cost: 12000 },
-    { name: 'V-002', cost: 4500 },
-    { name: 'V-003', cost: 15000 },
-    { name: 'V-004', cost: 0 }
-  ];
+    return months.map(m => ({ month: m, value: monthlyCosts[m] || 0 })).filter(d => d.value > 0);
+  }, [fuelLogs]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold font-headline text-slate-900">8. Operational Analytics & Financial Reports</h2>
-          <p className="text-slate-500">Business Intelligence & Profitability Engine</p>
+          <h2 className="text-3xl font-bold font-headline text-slate-900 uppercase tracking-tighter">Business Intelligence</h2>
+          <p className="text-slate-500 font-medium">Real-Time Financial & Operational Performance Engine</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="rounded-xl border-slate-200">
+          <Button variant="outline" className="rounded-xl border-slate-200 text-xs font-bold uppercase tracking-wider">
             <Filter className="w-4 h-4 mr-2" /> Filter Period
           </Button>
-          <Button className="bg-primary hover:bg-primary/90 text-white rounded-xl h-11 px-6 shadow-lg shadow-primary/20">
-            <Download className="w-4 h-4 mr-2" /> Export PDF
+          <Button className="bg-primary hover:bg-primary/90 text-white rounded-xl h-11 px-6 shadow-lg shadow-primary/20 font-bold">
+            <Download className="w-4 h-4 mr-2" /> Export Report
           </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {stats.map((kpi, i) => (
-          <Card key={i} className={`border-2 ${kpi.borderColor} shadow-sm hover:shadow-md transition-all overflow-hidden bg-white rounded-2xl`}>
+          <Card key={i} className={`border-2 ${kpi.borderColor} shadow-sm hover:shadow-md transition-all overflow-hidden bg-white rounded-3xl`}>
             <CardContent className="p-8 flex flex-col items-center text-center space-y-4">
-              <div className={`p-4 rounded-2xl ${kpi.bgColor} ${kpi.color}`}>
+              <div className={`p-5 rounded-2xl ${kpi.bgColor} ${kpi.color}`}>
                 <kpi.icon className="w-8 h-8" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest">{kpi.title}</h3>
-                <div className={`text-3xl font-black font-headline mt-1 ${kpi.color}`}>
-                  {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : kpi.value}
+                <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">{kpi.title}</h3>
+                <div className={`text-4xl font-black font-headline mt-2 ${kpi.color}`}>
+                  {isLoading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : kpi.value}
                 </div>
               </div>
             </CardContent>
@@ -110,92 +129,119 @@ export default function AnalyticsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white">
-          <CardHeader className="border-b bg-slate-50/30">
-            <CardTitle className="text-xl font-bold font-headline flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-primary" /> Fuel Efficiency Trend (kmL)
+        <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
+          <CardHeader className="border-b bg-slate-50/30 px-8 py-6">
+            <CardTitle className="text-lg font-bold font-headline flex items-center gap-2 uppercase tracking-tighter text-slate-900">
+              <TrendingUp className="w-5 h-5 text-primary" /> Monthly Fuel Expenditure
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-6 h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={fuelEfficiencyData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke="hsl(var(--primary))" 
-                  strokeWidth={4} 
-                  dot={{ r: 6, fill: 'hsl(var(--primary))', strokeWidth: 2, stroke: '#fff' }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+          <CardContent className="p-8 h-[350px]">
+            {fuelTrendData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={fuelTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 'bold'}} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 'bold'}} />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="value" 
+                    stroke="hsl(var(--primary))" 
+                    strokeWidth={5} 
+                    dot={{ r: 6, fill: 'hsl(var(--primary))', strokeWidth: 3, stroke: '#fff' }}
+                    activeDot={{ r: 8 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-slate-300">
+                <Database className="w-10 h-10 mb-2 opacity-20" />
+                <p className="text-xs font-bold uppercase tracking-widest">No fuel logs found</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white">
-          <CardHeader className="border-b bg-slate-50/30">
-            <CardTitle className="text-xl font-bold font-headline flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-[#16A34A]" /> Asset Maintenance Costs
+        <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
+          <CardHeader className="border-b bg-slate-50/30 px-8 py-6">
+            <CardTitle className="text-lg font-bold font-headline flex items-center gap-2 uppercase tracking-tighter text-slate-900">
+              <BarChart3 className="w-5 h-5 text-[#16A34A]" /> Asset Maintenance Distribution
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-6 h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={costliestVehiclesData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                <Tooltip 
-                  cursor={{fill: '#f8fafc'}}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                />
-                <Bar 
-                  dataKey="cost" 
-                  fill="#1E40AF" 
-                  radius={[6, 6, 0, 0]} 
-                  barSize={40}
-                />
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent className="p-8 h-[350px]">
+            {costliestVehiclesData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={costliestVehiclesData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 'bold'}} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 'bold'}} />
+                  <Tooltip 
+                    cursor={{fill: '#f8fafc'}}
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
+                  />
+                  <Bar 
+                    dataKey="cost" 
+                    fill="hsl(var(--primary))" 
+                    radius={[8, 8, 0, 0]} 
+                    barSize={45}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-slate-300">
+                <Database className="w-10 h-10 mb-2 opacity-20" />
+                <p className="text-xs font-bold uppercase tracking-widest">No maintenance logs found</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white">
-        <CardHeader className="border-b bg-[#1E40AF]/5 flex flex-col items-center justify-center py-8">
-          <div className="bg-[#1E40AF] text-white px-6 py-2 rounded-full font-bold shadow-lg flex items-center gap-2">
+      <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
+        <CardHeader className="border-b bg-[#1E40AF]/5 flex flex-col items-center justify-center py-10">
+          <div className="bg-[#1E40AF] text-white px-8 py-3 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-primary/20 flex items-center gap-3">
             <Receipt className="w-4 h-4" />
-            Active Fleet Ledger (Fuel & Expense)
+            Active Operational Ledger
           </div>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader className="bg-white border-b-2">
               <TableRow className="border-none hover:bg-transparent">
-                <TableHead className="h-16 pl-8 text-sm font-black uppercase text-[#FF69B4] tracking-tighter">Asset</TableHead>
-                <TableHead className="h-16 text-sm font-black uppercase text-[#FF69B4] tracking-tighter">Date</TableHead>
-                <TableHead className="h-16 text-sm font-black uppercase text-[#FF69B4] tracking-tighter">Category</TableHead>
-                <TableHead className="h-16 pr-8 text-right text-sm font-black uppercase text-[#FF69B4] tracking-tighter">Amount</TableHead>
+                <TableHead className="h-16 pl-10 text-[10px] font-black uppercase text-primary tracking-[0.2em]">Fleet Asset</TableHead>
+                <TableHead className="h-16 text-[10px] font-black uppercase text-primary tracking-[0.2em]">Transaction Date</TableHead>
+                <TableHead className="h-16 text-[10px] font-black uppercase text-primary tracking-[0.2em]">Ledger Category</TableHead>
+                <TableHead className="h-16 pr-10 text-right text-[10px] font-black uppercase text-primary tracking-[0.2em]">Verified Amount</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={4} className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
-              ) : (
-                [...(fuelLogs || []), ...(expenses || [])].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((item: any) => (
-                  <TableRow key={item.id} className="h-16 border-slate-100 hover:bg-slate-50 transition-colors">
-                    <TableCell className="pl-8 font-bold text-slate-900">{item.vehicleId}</TableCell>
-                    <TableCell className="text-slate-600">{item.date}</TableCell>
-                    <TableCell className="font-medium text-slate-700">{item.category || (item.liters ? 'Fuel' : 'General')}</TableCell>
-                    <TableCell className="pr-8 text-right font-black text-[#16A34A]">
+                <TableRow><TableCell colSpan={4} className="text-center py-20"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary/50" /></TableCell></TableRow>
+              ) : [...(fuelLogs || []), ...(expenses || [])].length > 0 ? (
+                [...(fuelLogs || []), ...(expenses || [])]
+                  .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                  .slice(0, 15)
+                  .map((item: any) => (
+                  <TableRow key={item.id} className="h-20 border-slate-50 hover:bg-slate-50 transition-all group">
+                    <TableCell className="pl-10 font-bold text-slate-900">{item.vehicleId}</TableCell>
+                    <TableCell className="text-slate-500 font-medium">{item.date}</TableCell>
+                    <TableCell className="font-bold text-slate-600 uppercase text-[10px] tracking-widest">
+                      {item.category || (item.liters ? 'FUEL_REFILL' : 'OPERATIONAL')}
+                    </TableCell>
+                    <TableCell className="pr-10 text-right font-black text-emerald-600 text-lg">
                       Rs. {(item.cost || item.amount).toLocaleString()}
                     </TableCell>
                   </TableRow>
                 ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-24">
+                    <Database className="w-12 h-12 text-slate-100 mx-auto mb-4" />
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No ledger records found</p>
+                  </TableCell>
+                </TableRow>
               )}
             </TableBody>
           </Table>
