@@ -13,7 +13,7 @@ import {
   Settings, 
   LogOut, 
   Bell,
-  GaugeCircle,
+  Users,
   Loader2,
   Sparkles,
   ShieldCheck
@@ -32,7 +32,7 @@ const navItems = [
   { icon: ClipboardList, label: 'Trip Dispatcher', href: '/dashboard/trips', roles: ['fleet-manager', 'dispatcher'] },
   { icon: Wrench, label: 'Maintenance', href: '/dashboard/maintenance', roles: ['fleet-manager'] },
   { icon: Receipt, label: 'Trip & Expense', href: '/dashboard/expenses', roles: ['fleet-manager', 'financial-analyst'] },
-  { icon: GaugeCircle, label: 'Performance', href: '/dashboard/performance', roles: ['fleet-manager', 'dispatcher', 'safety-officer'] },
+  { icon: Users, label: 'Driver Roster', href: '/dashboard/performance', roles: ['fleet-manager', 'dispatcher', 'safety-officer'] },
   { icon: LineChart, label: 'Analytics', href: '/dashboard/analytics', roles: ['fleet-manager', 'financial-analyst'] },
 ];
 
@@ -44,11 +44,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const db = useFirestore();
   const [isSeeding, setIsSeeding] = useState(false);
 
-  // 1. Get User Profile to find the roleId
   const userProfileRef = useMemoFirebase(() => user ? doc(db, 'users', user.uid) : null, [db, user]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
-  // 2. Self-Healing Role Provisioning
   useEffect(() => {
     if (user && userProfile && !isProfileLoading) {
       const roleId = userProfile.roleId || 'dispatcher';
@@ -66,7 +64,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [user, userProfile, isProfileLoading, db]);
 
-  // 3. User Role Display Context
   const roleName = useMemo(() => {
     switch(userProfile?.roleId) {
       case 'fleet-manager': return 'Fleet Manager';
@@ -77,7 +74,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [userProfile]);
 
-  // 4. Role-Based Navigation Filtering
   const filteredNavItems = useMemo(() => {
     if (!userProfile) return [];
     return navItems.filter(item => item.roles.includes(userProfile.roleId));
@@ -100,7 +96,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (vSnap.empty) {
         const batch = writeBatch(db);
         
-        // Demo Vehicles
         const vehicles = [
           { id: 'V-001', name: 'Scania Heavy R500', model: 'R500', licensePlate: 'ABC-123', maxCapacityKg: 15000, odometerKm: 45000, acquisitionCost: 1200000, status: 'Available', type: 'Truck', region: 'Central' },
           { id: 'V-002', name: 'Ford Transit', model: 'Transit', licensePlate: 'XYZ-789', maxCapacityKg: 2000, odometerKm: 12000, acquisitionCost: 450000, status: 'On Trip', type: 'Van', region: 'North' },
@@ -108,11 +103,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         ];
         vehicles.forEach(v => batch.set(doc(vehiclesRef, v.id), v));
 
-        // Demo Drivers
         const driversRef = collection(db, 'drivers');
         const drivers = [
           { id: 'D-001', name: 'Robert Miller', licenseCategory: 'Class A', licenseExpiryDate: '2026-12-30', status: 'On Duty', safetyScore: 94, totalTrips: 120, completedTrips: 118, completionRate: 98 },
-          { id: 'D-002', name: 'Sarah Connor', licenseCategory: 'Class B', licenseExpiryDate: '2023-01-01', status: 'Suspended', safetyScore: 82, totalTrips: 45, completedTrips: 40, completionRate: 88 },
+          { id: 'D-002', name: 'Sarah Connor', licenseCategory: 'Class B', licenseExpiryDate: '2025-01-01', status: 'On Duty', safetyScore: 82, totalTrips: 45, completedTrips: 40, completionRate: 88 },
           { id: 'D-003', name: 'James Logan', licenseCategory: 'Class A', licenseExpiryDate: '2025-06-15', status: 'On Duty', safetyScore: 91, totalTrips: 88, completedTrips: 85, completionRate: 96 },
         ];
         drivers.forEach(d => batch.set(doc(driversRef, d.id), d));
