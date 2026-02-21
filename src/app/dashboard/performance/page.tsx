@@ -126,9 +126,10 @@ export default function PerformancePage() {
     const accidents = Number(formData.accidents) || 0;
     const completionRate = total > 0 ? (completed / total) * 100 : 0;
     
-    // Calculation: Base (100) - (Accidents * 20) + (Small bonus for completion rate)
+    // Calculation: Base (100) - (Accidents * 20)
+    // Note: We clamp at 0 and 100
     let calculatedSafetyScore = 100 - (accidents * 20);
-    if (completionRate > 90) calculatedSafetyScore += 5;
+    if (completionRate > 90 && accidents < 5) calculatedSafetyScore += 5;
     calculatedSafetyScore = Math.max(0, Math.min(100, calculatedSafetyScore));
 
     const isSafetyZero = calculatedSafetyScore === 0;
@@ -397,11 +398,11 @@ export default function PerformancePage() {
                           <div className="flex flex-col items-end gap-1">
                             <Badge className={cn(
                               "rounded-xl px-4 py-2 font-black text-[10px] uppercase tracking-widest border-none shadow-sm font-headline",
-                              driver.status === 'Suspended' ? 'bg-red-500 text-white' : 
+                              (isExpired || isCriticalSafety || driver.status === 'Suspended') ? 'bg-red-500 text-white' : 
                               driver.status === 'Available' ? 'bg-emerald-100 text-emerald-700' : 
                               driver.status === 'On Trip' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-600'
                             )}>
-                              {driver.status}
+                              {(isExpired || isCriticalSafety) ? 'Suspended' : driver.status}
                             </Badge>
                             {isCriticalSafety && <span className="text-[8px] font-black text-red-600 uppercase">Safety Lock</span>}
                           </div>
