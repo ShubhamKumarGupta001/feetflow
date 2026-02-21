@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -14,9 +14,11 @@ import { collection } from 'firebase/firestore';
 
 export default function AnalyticsPage() {
   const db = useFirestore();
+  
+  // Memoize collection references with stable dependencies to prevent infinite loops
   const fuelRef = useMemoFirebase(() => collection(db, 'fuel_logs'), [db]);
-  const expenseRef = useMemoFirebase(() => collection(db, 'expenses'));
-  const tripRef = useMemoFirebase(() => collection(db, 'trips'));
+  const expenseRef = useMemoFirebase(() => collection(db, 'expenses'), [db]);
+  const tripRef = useMemoFirebase(() => collection(db, 'trips'), [db]);
 
   const { data: fuelLogs, isLoading: fLoading } = useCollection(fuelRef);
   const { data: expenses, isLoading: eLoading } = useCollection(expenseRef);
@@ -60,7 +62,6 @@ export default function AnalyticsPage() {
 
   const isLoading = fLoading || eLoading || tLoading;
 
-  // Visual placeholders for charts (matching the seeded data theme)
   const fuelEfficiencyData = [
     { month: 'Jan', value: 5 }, { month: 'Feb', value: 7 }, { month: 'Mar', value: 6.5 },
     { month: 'Apr', value: 8 }, { month: 'May', value: 9 }, { month: 'Jun', value: 8.5 }
@@ -99,9 +100,9 @@ export default function AnalyticsPage() {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest">{kpi.title}</h3>
-                <p className={`text-3xl font-black font-headline mt-1 ${kpi.color}`}>
+                <div className={`text-3xl font-black font-headline mt-1 ${kpi.color}`}>
                   {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : kpi.value}
-                </p>
+                </div>
               </div>
             </CardContent>
           </Card>
