@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarGroup, SidebarGroupLabel } from '@/components/ui/sidebar';
 import { 
   LayoutDashboard, 
@@ -13,14 +14,17 @@ import {
   LogOut, 
   Bell,
   GaugeCircle,
-  Loader2
+  Loader2,
+  Sparkles
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useUser, useAuth, useFirestore, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
+import { useUser, useAuth, useFirestore, useDoc, setDocumentNonBlocking, useMemoFirebase, useCollection, addDocumentNonBlocking } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { doc } from 'firebase/firestore';
+import { doc, collection, getDocs } from 'firebase/firestore';
+import { Button } from '@/components/ui/button';
+import { toast } from '@/hooks/use-toast';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
@@ -38,6 +42,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const db = useFirestore();
+  const [isSeeding, setIsSeeding] = useState(false);
 
   // Check for the role document to ensure the user is "provisioned" for the prototype
   const roleRef = useMemoFirebase(() => {
@@ -45,7 +50,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return doc(db, 'roles_fleetManagers', user.uid);
   }, [db, user]);
 
-  const { data: roleDoc, isLoading: isRoleLoading, error: roleError } = useDoc(roleRef);
+  const { data: roleDoc, isLoading: isRoleLoading } = useDoc(roleRef);
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -54,18 +59,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [user, isUserLoading, router]);
 
   // PROTOTYPE AUTO-PROVISIONING: 
-  // If the user is logged in but has no role document, create it now.
-  // We use merge: true to handle upserts gracefully.
   useEffect(() => {
     if (user && !isRoleLoading && !roleDoc) {
-      // Initialize User Profile
       setDocumentNonBlocking(doc(db, 'users', user.uid), {
         id: user.uid,
         email: user.email,
         roleId: 'fleet-manager'
       }, { merge: true });
 
-      // Provision Fleet Manager role for the prototype
       setDocumentNonBlocking(doc(db, 'roles_fleetManagers', user.uid), {
         id: user.uid,
         name: 'Fleet Manager',
@@ -73,6 +74,62 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }, { merge: true });
     }
   }, [user, isRoleLoading, roleDoc, db]);
+
+  // DEMO SEEDING LOGIC
+  const seedDemoData = async () => {
+    if (!user || isSeeding) return;
+    setIsSeeding(true);
+    
+    try {
+      const vehiclesRef = collection(db, 'vehicles');
+      const driversRef = collection(db, 'drivers');
+      
+      const vSnap = await getDocs(vehiclesRef);
+      if (vSnap.empty) {
+        // Vehicles
+        const v1 = { id: 'V-001', name: 'Scania Heavy', model: 'R500', licensePlate: 'ABC-123', maxCapacityKg: 15000, odometerKm: 45000, acquisitionCost: 1200000, status: 'Available', type: 'Truck', region: 'Central' };
+        const v2 = { id: 'V-002', name: 'Ford Delivery', model: 'Transit', licensePlate: 'XYZ-789', maxCapacityKg: 2000, odometerKm: 12000, acquisitionCost: 450000, status: 'On Trip', type: 'Van', region: 'North' };
+        const v3 = { id: 'V-003', name: 'Hiace Mini', model: 'Toyota 2022', licensePlate: 'LMN-456', maxCapacityKg: 1000, odometerKm: 8000, acquisitionCost: 350000, status: 'In Shop', type: 'Mini', region: 'South' };
+        
+        await Promise.all([
+          addDocumentNonBlocking(vehiclesRef, v1),
+          addDocumentNonBlocking(vehiclesRef, v2),
+          addDocumentNonBlocking(vehiclesRef, v3)
+        ]);
+
+        // Drivers
+        const d1 = { id: 'D-001', name: 'John Doe', licenseCategory: 'Class A', licenseExpiryDate: '2025-12-01', status: 'On Trip', safetyScore: 98, totalTrips: 45, completedTrips: 44, completionRate: 97 };
+        const d2 = { id: 'D-002', name: 'Sarah Miller', licenseCategory: 'Class B', licenseExpiryDate: '2026-05-15', status: 'On Duty', safetyScore: 92, totalTrips: 12, completedTrips: 10, completionRate: 83 };
+        const d3 = { id: 'D-003', name: 'Mike Ross', licenseCategory: 'Class A', licenseExpiryDate: '2023-01-01', status: 'Suspended', safetyScore: 75, totalTrips: 2, completedTrips: 1, completionRate: 50 };
+        
+        await Promise.all([
+          addDocumentNonBlocking(driversRef, d1),
+          addDocumentNonBlocking(driversRef, d2),
+          addDocumentNonBlocking(driversRef, d3)
+        ]);
+
+        // Trips
+        const tripsRef = collection(db, 'trips');
+        await addDocumentNonBlocking(tripsRef, {
+          id: 'T-8821', vehicleId: 'V-002', driverId: 'D-001', cargoWeightKg: 500, origin: 'Mumbai', destination: 'Pune', revenue: 15000, startOdometerKm: 11500, status: 'Dispatched', dispatchDate: new Date().toISOString()
+        });
+
+        // Maintenance
+        const maintenanceRef = collection(db, 'maintenance_logs');
+        await addDocumentNonBlocking(maintenanceRef, {
+          id: 'M-321', vehicleId: 'V-003', serviceType: 'Engine Overhaul', cost: 15000, date: '2024-03-24', status: 'New', notes: 'Unusual noise reported'
+        });
+
+        toast({ title: "Demo Seeded", description: "Fresh logistics data injected into your system." });
+      } else {
+        toast({ title: "Data Exists", description: "Your fleet already has records." });
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSeeding(false);
+    }
+  };
 
   if (isUserLoading || (user && isRoleLoading)) {
     return (
@@ -124,6 +181,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             <SidebarGroup className="mt-8">
               <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    onClick={seedDemoData} 
+                    disabled={isSeeding}
+                    className="h-11 rounded-lg px-4 hover:bg-white/10 transition-colors text-emerald-400 font-bold"
+                  >
+                    {isSeeding ? <Loader2 className="w-5 h-5 mr-3 animate-spin" /> : <Sparkles className="w-5 h-5 mr-3" />}
+                    <span>{isSeeding ? "Seeding..." : "Seed Demo Data"}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton className="h-11 rounded-lg px-4 hover:bg-white/10 transition-colors">
                     <Settings className="w-5 h-5 mr-3 text-sidebar-foreground/70" />
