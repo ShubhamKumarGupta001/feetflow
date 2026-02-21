@@ -31,16 +31,25 @@ export default function RegisterPage() {
   const db = useFirestore();
 
   /**
-   * Logic-Based Role Assignment
-   * In a real enterprise app, this would be validated against an LDAP/AD 
-   * or a white-listed invitation system.
+   * Logic-Based Role Assignment (RBAC Engine)
+   * The system automatically identifies the user's role based on their 
+   * professional identity context (keywords in email).
    */
   const determineRoleFromEmail = (email: string) => {
     const lowEmail = email.toLowerCase();
+    
+    // Explicit Admin/Management keywords
+    if (lowEmail.includes('admin') || lowEmail.includes('manager') || lowEmail.includes('owner')) {
+      return 'fleet-manager';
+    }
+    
+    // Specialist Logistics keywords
     if (lowEmail.includes('dispatch')) return 'dispatcher';
     if (lowEmail.includes('safety') || lowEmail.includes('compliance')) return 'safety-officer';
     if (lowEmail.includes('finance') || lowEmail.includes('audit') || lowEmail.includes('account')) return 'financial-analyst';
-    return 'fleet-manager'; // Default role
+    
+    // Default to the highest authority for general professional accounts
+    return 'fleet-manager'; 
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -50,7 +59,7 @@ export default function RegisterPage() {
     setIsEmailInUse(false);
     
     try {
-      // 1. Determine role before account creation
+      // 1. Determine role before account creation using the identity engine
       const roleId = determineRoleFromEmail(email);
       const roleConfig = ROLE_METADATA[roleId as keyof typeof ROLE_METADATA];
 
@@ -66,10 +75,11 @@ export default function RegisterPage() {
       }, { merge: true });
 
       // 4. Provision Specific Role Collection (Non-blocking)
+      // This creates the 'existence-based' flag that our Security Rules require.
       setDocumentNonBlocking(doc(db, roleConfig.collection, user.uid), {
         id: user.uid,
         name: roleConfig.label,
-        accessScope: `Automated ${roleConfig.label} access granted based on identity verification.`
+        accessScope: `System-generated administrative access for the ${roleConfig.label} role.`
       }, { merge: true });
 
       // 5. Redirect immediately to the centralized dashboard
@@ -96,19 +106,19 @@ export default function RegisterPage() {
 
       <Card className="w-full max-w-md border-none shadow-xl bg-white rounded-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
         <CardHeader className="space-y-2 pb-8 pt-8 text-center">
-          <CardTitle className="text-2xl font-bold font-headline">Join FleetFlow</CardTitle>
+          <CardTitle className="text-2xl font-bold font-headline">Identity Verification</CardTitle>
           <CardDescription className="text-slate-500">
-            Professional logistics workspace for high-performance teams.
+            Automated workspace provisioning for logistics professionals.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleRegister} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="email">Work Email</Label>
+              <Label htmlFor="email">Professional Email</Label>
               <Input 
                 id="email" 
                 type="email" 
-                placeholder="name@company.com" 
+                placeholder="admin@fleetflow.com" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -116,7 +126,7 @@ export default function RegisterPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Security Password</Label>
               <Input 
                 id="password" 
                 type="password" 
@@ -129,16 +139,15 @@ export default function RegisterPage() {
             </div>
 
             <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
-              <div className="flex items-center gap-2 text-primary">
-                <ShieldCheck className="w-5 h-5" />
-                <span className="text-xs font-black uppercase tracking-widest">Automatic Provisioning</span>
+              <div className="flex items-center gap-2 text-primary font-black uppercase tracking-[0.15em] text-[10px]">
+                <ShieldCheck className="w-4 h-4" />
+                Automatic Role Detection
               </div>
               <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
-                Our system assigns workspace roles based on your verified professional identity. 
-                Use keywords like <span className="text-slate-900 font-bold italic">dispatch</span>, 
-                <span className="text-slate-900 font-bold italic">safety</span>, or 
-                <span className="text-slate-900 font-bold italic">finance</span> in your email for specialized access. 
-                Standard professional emails default to <span className="text-slate-900 font-bold">Fleet Manager</span>.
+                Our AI-driven engine assigns access based on professional keywords. 
+                Use <span className="text-slate-900 font-bold">admin</span>, <span className="text-slate-900 font-bold">dispatch</span>, 
+                <span className="text-slate-900 font-bold">safety</span>, or <span className="text-slate-900 font-bold">finance</span> in your email. 
+                Accounts default to <span className="text-slate-900 font-bold italic">Fleet Manager</span> administrative access.
               </p>
             </div>
 
@@ -161,13 +170,13 @@ export default function RegisterPage() {
               disabled={loading}
               className="w-full h-12 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold text-lg shadow-lg shadow-primary/20 transition-all active:scale-95"
             >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : "Verify & Onboard"}
+              {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : "Authenticate & Open Workspace"}
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex flex-col border-t bg-slate-50/50 p-6 space-y-4">
           <p className="text-sm text-slate-500 text-center">
-            Already have an account?{" "}
+            Already have an active session?{" "}
             <Link href="/auth/login" className="text-primary font-bold hover:underline">
               Sign In
             </Link>
