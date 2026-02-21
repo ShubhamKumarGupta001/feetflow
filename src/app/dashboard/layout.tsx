@@ -26,13 +26,13 @@ import { doc, collection, getDocs, writeBatch } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 
 const navItems = [
-  { icon: LayoutDashboard, label: 'Overview', href: '/dashboard', roles: ['fleet-manager', 'dispatcher', 'safety-officer', 'financial-analyst'] },
-  { icon: Truck, label: 'Fleet Registry', href: '/dashboard/vehicles', roles: ['fleet-manager', 'dispatcher', 'safety-officer'] },
-  { icon: ClipboardList, label: 'Trip Dispatch', href: '/dashboard/trips', roles: ['fleet-manager', 'dispatcher'] },
+  { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', roles: ['fleet-manager', 'dispatcher', 'safety-officer', 'financial-analyst'] },
+  { icon: Truck, label: 'Vehicle Registry', href: '/dashboard/vehicles', roles: ['fleet-manager', 'dispatcher', 'safety-officer'] },
+  { icon: ClipboardList, label: 'Trip Dispatcher', href: '/dashboard/trips', roles: ['fleet-manager', 'dispatcher'] },
   { icon: Wrench, label: 'Maintenance', href: '/dashboard/maintenance', roles: ['fleet-manager'] },
-  { icon: Receipt, label: 'Financials', href: '/dashboard/expenses', roles: ['fleet-manager', 'financial-analyst'] },
-  { icon: GaugeCircle, label: 'Safety Hub', href: '/dashboard/performance', roles: ['fleet-manager', 'dispatcher', 'safety-officer'] },
-  { icon: LineChart, label: 'Intelligence', href: '/dashboard/analytics', roles: ['fleet-manager', 'financial-analyst'] },
+  { icon: Receipt, label: 'Trip & Expense', href: '/dashboard/expenses', roles: ['fleet-manager', 'financial-analyst'] },
+  { icon: GaugeCircle, label: 'Performance', href: '/dashboard/performance', roles: ['fleet-manager', 'dispatcher', 'safety-officer'] },
+  { icon: LineChart, label: 'Analytics', href: '/dashboard/analytics', roles: ['fleet-manager', 'financial-analyst'] },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -48,7 +48,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
   // 2. Self-Healing Role Provisioning
-  // This ensures the role flag exists in the dedicated collection, enabling server-side rule validation.
   useEffect(() => {
     if (user && userProfile && !isProfileLoading) {
       const roleId = userProfile.roleId || 'dispatcher';
@@ -149,13 +148,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="w-10 h-10 bg-primary rounded-2xl flex items-center justify-center transition-all group-hover:rotate-6 shadow-xl shadow-primary/20">
                 <Truck className="w-6 h-6 text-white" />
               </div>
-              <span className="font-headline text-2xl font-bold tracking-tight text-slate-900 uppercase">FleetFlow</span>
+              <span className="font-headline text-2xl font-bold tracking-tight text-slate-900 uppercase">Fleet Flow</span>
             </Link>
           </SidebarHeader>
           
           <SidebarContent className="px-4">
             <SidebarGroup>
-              <SidebarGroupLabel className="px-4 mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Command Center</SidebarGroupLabel>
+              <SidebarGroupLabel className="px-4 mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 font-headline">Menu</SidebarGroupLabel>
               <SidebarMenu className="gap-1">
                 {filteredNavItems.map((item) => (
                   <SidebarMenuItem key={item.label}>
@@ -179,7 +178,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </SidebarGroup>
 
             <SidebarGroup className="mt-8">
-              <SidebarGroupLabel className="px-4 mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">System</SidebarGroupLabel>
+              <SidebarGroupLabel className="px-4 mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 font-headline">System</SidebarGroupLabel>
               <SidebarMenu className="gap-1">
                 {userProfile?.roleId === 'fleet-manager' && (
                   <SidebarMenuItem>
