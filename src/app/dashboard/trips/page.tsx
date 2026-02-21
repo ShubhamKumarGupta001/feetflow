@@ -30,10 +30,23 @@ import {
   ClipboardList,
   Navigation,
   AlertCircle,
-  Weight
+  Weight,
+  ArrowRight,
+  CheckCircle2,
+  Clock,
+  Truck
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+
+// Define the 4 tracking stages
+const TRACKING_STAGES = [
+  { id: 'Scheduled', label: 'Scheduled', color: 'bg-slate-200', icon: Clock },
+  { id: 'Dispatched', label: 'Dispatched', color: 'bg-blue-500', icon: Navigation },
+  { id: 'In Transit', label: 'In Transit', color: 'bg-amber-500', icon: Truck },
+  { id: 'Completed', label: 'Delivered', color: 'bg-emerald-500', icon: CheckCircle2 },
+];
 
 export default function TripsPage() {
   const { user } = useUser();
@@ -82,25 +95,18 @@ export default function TripsPage() {
     const cargoWeight = Number(formData.cargoWeightKg) || 0;
     const vehicleLimit = vehicle?.maxCapacityKg || 0;
     
-    // CRITICAL: Payload Validation Logic
     if (cargoWeight <= 0) {
       toast({ variant: "destructive", title: "Invalid Cargo", description: "Cargo weight must be a positive number." });
       return;
     }
 
     if (cargoWeight > vehicleLimit) {
-      // Create a persistent toast for 20 seconds
       const { dismiss } = toast({ 
         variant: "destructive", 
         title: "PAYLOAD OVERLOAD DETECTED", 
         description: `CRITICAL ERROR: The entered cargo weight (${cargoWeight}kg) exceeds the ${vehicle?.name}'s maximum support limit of ${vehicleLimit}kg. This dispatch has been blocked for safety.` 
       });
-
-      // Show error for exactly 20 seconds then disappear as requested
-      setTimeout(() => {
-        dismiss();
-      }, 20000);
-
+      setTimeout(() => dismiss(), 20000);
       return;
     }
 
@@ -109,7 +115,6 @@ export default function TripsPage() {
     const tripDocRef = doc(firestore, 'trips', tripId);
 
     try {
-      // 1. Create the Trip Record
       setDocumentNonBlocking(tripDocRef, {
         id: tripId,
         vehicleId: formData.vehicleId,
@@ -119,27 +124,47 @@ export default function TripsPage() {
         destination: formData.destination,
         revenue: 0,
         startOdometerKm: vehicle?.odometerKm || 0,
-        status: 'Dispatched',
+        status: 'Scheduled', // Initial stage
         dispatchDate: new Date().toISOString(),
         createdAt: serverTimestamp()
       }, { merge: true });
 
-      // 2. Update Vehicle Status
       const vehicleRef = doc(firestore, 'vehicles', formData.vehicleId);
       updateDocumentNonBlocking(vehicleRef, { status: 'On Trip' });
 
-      // 3. Update Driver Status
       const driverRef = doc(firestore, 'drivers', formData.driverId);
       updateDocumentNonBlocking(driverRef, { status: 'On Trip' });
 
-      toast({ title: "Dispatch Confirmed", description: `${tripId} is now active and tracked.` });
-      
-      // Reset Form
+      toast({ title: "Trip Scheduled", description: `${tripId} has been added to the queue.` });
       setFormData({ vehicleId: '', driverId: '', cargoWeightKg: '', origin: '', destination: '' });
     } catch (err: any) {
       toast({ variant: "destructive", title: "Dispatch Failed", description: "There was a problem syncing with the fleet ledger." });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const advanceStage = (trip: any) => {
+    const currentIndex = TRACKING_STAGES.findIndex(s => s.id === trip.status);
+    if (currentIndex < TRACKING_STAGES.length - 1) {
+      const nextStage = TRACKING_STAGES[currentIndex + 1];
+      const tripRef = doc(firestore, 'trips', trip.id);
+      
+      const updateData: any = { status: nextStage.id };
+      
+      // If completed, free up the vehicle and driver
+      if (nextStage.id === 'Completed') {
+        updateData.completionDate = new Date().toISOString();
+        
+        const vehicleRef = doc(firestore, 'vehicles', trip.vehicleId);
+        updateDocumentNonBlocking(vehicleRef, { status: 'Available' });
+
+        const driverRef = doc(firestore, 'drivers', trip.driverId);
+        updateDocumentNonBlocking(driverRef, { status: 'Available' });
+      }
+
+      updateDocumentNonBlocking(tripRef, updateData);
+      toast({ title: "Tracking Updated", description: `Trip ${trip.id} is now ${nextStage.label}.` });
     }
   };
 
@@ -156,7 +181,7 @@ export default function TripsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold font-headline text-slate-900 uppercase tracking-tighter">Trip Command</h2>
-          <p className="text-slate-500 font-medium">Real-time Deployment & Asset Coordination</p>
+          <p className="text-slate-500 font-medium">4-Stage Cargo Tracking & Asset Coordination</p>
         </div>
       </div>
 
@@ -185,30 +210,60 @@ export default function TripsPage() {
               <Table>
                 <TableHeader className="bg-slate-50/50">
                   <TableRow className="border-none">
-                    <TableHead className="w-[120px] h-14 pl-8 text-xs font-bold uppercase text-slate-400">ID</TableHead>
+                    <TableHead className="w-[100px] h-14 pl-8 text-xs font-bold uppercase text-slate-400">ID</TableHead>
                     <TableHead className="h-14 text-xs font-bold uppercase text-slate-400">Route Map</TableHead>
-                    <TableHead className="h-14 text-xs font-bold uppercase text-slate-400 text-center">Assigned Asset</TableHead>
-                    <TableHead className="h-14 pr-8 text-right text-xs font-bold uppercase text-slate-400">Journey State</TableHead>
+                    <TableHead className="h-14 text-xs font-bold uppercase text-slate-400">Tracking Progress</TableHead>
+                    <TableHead className="h-14 pr-8 text-right text-xs font-bold uppercase text-slate-400">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredTrips.map((trip) => {
-                    const vehicle = vehicles?.find(v => v.id === trip.vehicleId);
+                    const currentStageIndex = TRACKING_STAGES.findIndex(s => s.id === trip.status);
+                    const isCompleted = trip.status === 'Completed';
+
                     return (
-                      <TableRow key={trip.id} className="h-16 border-slate-100 hover:bg-slate-50/50 transition-colors">
+                      <TableRow key={trip.id} className="h-20 border-slate-100 hover:bg-slate-50/50 transition-colors group">
                         <TableCell className="pl-8 font-black text-primary/70 text-xs">{trip.id}</TableCell>
-                        <TableCell className="font-bold text-slate-900">{trip.origin} → {trip.destination}</TableCell>
-                        <TableCell className="font-bold text-slate-700 text-center">
-                          {vehicle ? `${vehicle.name} (${vehicle.licensePlate})` : 'N/A'}
+                        <TableCell>
+                          <div className="font-bold text-slate-900">{trip.origin} → {trip.destination}</div>
+                          <div className="text-[10px] text-slate-400 font-medium">Weight: {trip.cargoWeightKg}kg</div>
+                        </TableCell>
+                        <TableCell className="min-w-[200px]">
+                          <div className="flex items-center gap-1 mb-2">
+                            {TRACKING_STAGES.map((stage, idx) => (
+                              <div 
+                                key={stage.id} 
+                                className={cn(
+                                  "h-1.5 flex-1 rounded-full transition-all duration-500",
+                                  idx <= currentStageIndex ? stage.color : "bg-slate-100"
+                                )}
+                              />
+                            ))}
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-tighter text-slate-500">
+                              {TRACKING_STAGES[currentStageIndex]?.label || trip.status}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-300">
+                              Stage {currentStageIndex + 1}/4
+                            </span>
+                          </div>
                         </TableCell>
                         <TableCell className="pr-8 text-right">
-                          <Badge className={`rounded-full px-3 py-0.5 font-bold border-none ${
-                            trip.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 
-                            trip.status === 'Dispatched' ? 'bg-blue-100 text-blue-700' : 
-                            'bg-slate-100 text-slate-600'
-                          }`}>
-                            {trip.status === 'Dispatched' ? 'In Transit' : trip.status}
-                          </Badge>
+                          {!isCompleted ? (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => advanceStage(trip)}
+                              className="h-8 rounded-lg border-primary/20 text-primary hover:bg-primary hover:text-white font-bold text-[10px] uppercase tracking-widest"
+                            >
+                              Next Stage <ArrowRight className="w-3 h-3 ml-1" />
+                            </Button>
+                          ) : (
+                            <Badge className="bg-emerald-100 text-emerald-700 border-none font-bold uppercase text-[10px] tracking-widest px-3">
+                              Delivered
+                            </Badge>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
@@ -229,7 +284,7 @@ export default function TripsPage() {
         <Card className="border-none shadow-sm bg-white overflow-hidden">
           <CardHeader className="border-b bg-primary/5">
             <CardTitle className="text-xl font-bold font-headline uppercase tracking-tighter text-primary">Deployment Hub</CardTitle>
-            <CardDescription className="font-medium text-slate-500">Configure journey and assign assets.</CardDescription>
+            <CardDescription className="font-medium text-slate-500">Start new tracking lifecycle.</CardDescription>
           </CardHeader>
           <CardContent className="p-8">
             <form onSubmit={handleDispatch} className="space-y-6">
@@ -269,11 +324,6 @@ export default function TripsPage() {
                   placeholder="Enter intended payload"
                   required 
                 />
-                {formData.vehicleId && (
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
-                    Selected Vehicle Limit: {vehicles?.find(v => v.id === formData.vehicleId)?.maxCapacityKg}kg
-                  </p>
-                )}
               </div>
 
               <div className="space-y-2">
