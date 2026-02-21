@@ -89,6 +89,7 @@ export default function TripsPage() {
     }
 
     if (cargoWeight > vehicleLimit) {
+      // Create a persistent toast for 20 seconds
       const { dismiss } = toast({ 
         variant: "destructive", 
         title: "PAYLOAD OVERLOAD DETECTED", 
