@@ -35,7 +35,7 @@ export default function RegisterPage() {
 
   /**
    * Secure Role Determination Logic
-   * - Fleet Manager: Strictly requires the ADMIN_SECRET_KEY. Keywords in email NO LONGER grant this role.
+   * - Fleet Manager: Strictly requires the ADMIN_SECRET_KEY.
    * - Specialist Roles: Automatic sorting via keywords (safety, finance, etc.)
    * - Default: Dispatcher
    */
@@ -47,10 +47,9 @@ export default function RegisterPage() {
       return 'fleet-manager';
     }
     
-    // 2. Automatic Sorting for standard specialist roles (NO keyword grants Fleet Manager anymore)
+    // 2. Automatic Sorting for standard specialist roles
     if (lowEmail.includes('safety') || lowEmail.includes('compliance')) return 'safety-officer';
     if (lowEmail.includes('finance') || lowEmail.includes('audit') || lowEmail.includes('account')) return 'financial-analyst';
-    if (lowEmail.includes('dispatch')) return 'dispatcher';
     
     // 3. Default Secure Entry Point
     return 'dispatcher'; 
@@ -66,17 +65,18 @@ export default function RegisterPage() {
       const roleId = determineRole(email, authKey);
       const roleConfig = ROLE_METADATA[roleId as keyof typeof ROLE_METADATA];
 
+      // Step 1: Create user in Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
-      // Provision User Profile
+      // Step 2: Provision User Profile in Firestore
       setDocumentNonBlocking(doc(db, 'users', user.uid), {
         id: user.uid,
         email: user.email,
         roleId: roleId
       }, { merge: true });
 
-      // Provision Role Flag (This enables Security Rule access)
+      // Step 3: Provision Role Flag (This enables Security Rule access)
       setDocumentNonBlocking(doc(db, roleConfig.collection, user.uid), {
         id: user.uid,
         name: roleConfig.label,
@@ -101,21 +101,21 @@ export default function RegisterPage() {
         <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center group-hover:rotate-12 transition-transform text-white shadow-lg shadow-primary/20">
           <Truck className="w-6 h-6" />
         </div>
-        <span className="font-headline text-2xl font-bold text-primary tracking-tight">FleetFlow</span>
+        <span className="font-headline text-2xl font-bold text-primary tracking-tight uppercase">Fleet Flow</span>
       </Link>
 
       <Card className="w-full max-w-md border-none shadow-xl bg-white rounded-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
         <CardHeader className="space-y-2 pb-8 pt-8 text-center border-b border-slate-50 bg-slate-50/30">
           <CardTitle className="text-2xl font-bold font-headline text-slate-900 uppercase tracking-tighter">Identity Setup</CardTitle>
           <CardDescription className="text-slate-500 font-medium">
-            Automated workspace provisioning for verified logistics staff.
+            Automated workspace provisioning for logistics staff.
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-8">
           <div className="mb-8 p-4 bg-primary/5 border border-primary/10 rounded-xl flex gap-3 items-start">
             <Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
             <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
-              <strong>Fleet Manager</strong> access is restricted. Use the System Authorization Key for administrative privileges. All other users default to <strong>Dispatcher</strong>.
+              <strong>Fleet Manager</strong> access requires a System Authorization Key. Specialist roles are inferred from work email keywords. Defaults to <strong>Dispatcher</strong>.
             </p>
           </div>
 
