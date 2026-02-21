@@ -1,0 +1,187 @@
+/**
+ * FleetFlow Security Rules
+ * 
+ * Core Philosophy:
+ * This ruleset implements a robust Role-Based Access Control (RBAC) model based on 
+ * "Authorization Independence." Instead of checking a user's role within their own profile
+ * (which requires a costly `get()` call), authorization is determined by the existence 
+ * of the user's UID within specialized role-based collections (e.g., /roles_fleetManagers/{userId}).
+ * This makes security checks atomic, performant, and highly scalable.
+ * 
+ * Data Structure:
+ * - /users/{userId}: Private user profiles.
+ * - /roles_{roleName}/{userId}: Flag collections used for RBAC checks.
+ * - /vehicles, /drivers, /trips, etc.: Global organizational assets secured by user roles.
+ * - /static_roles: Read-only metadata for UI and configuration.
+ * 
+ * Key Security Decisions:
+ * - Default Posture: All data is private. Access must be explicitly granted by role membership.
+ * - Path-Based User Security: Users can only manage their own /users/{userId} document.
+ * - Ownership vs. Role: Operational data (Trips, Vehicles) is considered an organizational 
+ *   asset. Access is determined by role (e.g., Dispatcher) rather than individual document ownership.
+ * - Denormalization: Role checks are optimized by using document existence in specific collections
+ *   to avoid complex queries during rule evaluation.
+ */
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- HELPER FUNCTIONS ---
+
+    /** @description Checks if the user is authenticated. */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** @description Checks if the authenticated user's UID matches the provided userId. */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /** @description Checks if a document exists for the user in a specific role collection. */
+    function hasRole(roleCollection) {
+      return isSignedIn() && exists(/databases/$(database)/documents/$(roleCollection)/$(request.auth.uid));
+    }
+
+    // Role-Specific Helpers
+    function isFleetManager() { return hasRole('roles_fleetManagers'); }
+    function isDispatcher() { return hasRole('roles_dispatchers'); }
+    function isSafetyOfficer() { return hasRole('roles_safetyOfficers'); }
+    function isFinancialAnalyst() { return hasRole('roles_financialAnalysts'); }
+
+    /** @description Ensures a document exists before allowing an update or delete. */
+    function documentExists() {
+      return resource != null;
+    }
+
+    // --- COLLECTION RULES ---
+
+    /**
+     * @description User profiles containing identity and role metadata.
+     * @path /users/{userId}
+     * @allow (get, update) if user is the owner of the profile.
+     * @deny (list) if user tries to see all users.
+     * @principle Path-based ownership and relational integrity for UIDs.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false; 
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isOwner(userId) && documentExists() && request.resource.data.id == resource.data.id;
+      allow delete: if false; // Users cannot delete their accounts in this prototype.
+    }
+
+    /**
+     * @description Flag collections for RBAC. Existence of UID grants the role.
+     * @path /roles_{roleType}/{userId}
+     * @allow (get) if user is checking their own role status.
+     * @deny (write) users cannot elevate their own roles.
+     * @principle Authorization independence through existence checks.
+     */
+    match /{roleColl}/{userId} {
+      // Constraint to only match our defined role collections
+      function isRoleCollection() {
+        return roleColl in ['roles_fleetManagers', 'roles_dispatchers', 'roles_safetyOfficers', 'roles_financialAnalysts'];
+      }
+
+      // Ensure the collection is a valid role collection before applying other rules
+      allow get: if isRoleCollection() && (isOwner(userId) || isFleetManager());
+      allow list: if isRoleCollection() && isFleetManager();
+      allow create, update, delete: if false; // Roles are managed via Admin SDK/Functions.
+    }
+
+    /**
+     * @description Global list of system roles and their descriptions.
+     * @path /static_roles/{roleId}
+     * @allow (get, list) if the user is signed in.
+     * @deny (write) for everyone (read-only system data).
+     * @principle Public read-only access for authenticated users.
+     */
+    match /static_roles/{roleId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    /**
+     * @description Central registry of vehicles.
+     * @path /vehicles/{vehicleId}
+     * @allow (get, list) if user has FM, Dispatcher, or Safety role.
+     * @allow (create, update, delete) if user is a Fleet Manager.
+     * @principle RBAC for asset management.
+     */
+    match /vehicles/{vehicleId} {
+      allow get, list: if isFleetManager() || isDispatcher() || isSafetyOfficer();
+      allow create: if isFleetManager();
+      allow update: if isFleetManager() && documentExists();
+      allow delete: if isFleetManager() && documentExists();
+    }
+
+    /**
+     * @description Driver personnel records.
+     * @path /drivers/{driverId}
+     * @allow (get, list) if user is FM, Dispatcher, or Safety Officer.
+     * @allow (write) if user is FM or Safety Officer (manages compliance).
+     * @principle Distributed authority based on functional roles.
+     */
+    match /drivers/{driverId} {
+      allow get, list: if isFleetManager() || isDispatcher() || isSafetyOfficer();
+      allow create: if isFleetManager() || isSafetyOfficer();
+      allow update: if (isFleetManager() || isSafetyOfficer()) && documentExists();
+      allow delete: if isFleetManager() && documentExists();
+    }
+
+    /**
+     * @description Operational trip records and dispatch history.
+     * @path /trips/{tripId}
+     * @allow (get, list, create, update) if user is Fleet Manager or Dispatcher.
+     * @deny (delete) only Fleet Managers can remove historical logs.
+     * @principle Operational workflow restriction to logistics roles.
+     */
+    match /trips/{tripId} {
+      allow get, list: if isFleetManager() || isDispatcher();
+      allow create: if isFleetManager() || isDispatcher();
+      allow update: if (isFleetManager() || isDispatcher()) && documentExists();
+      allow delete: if isFleetManager() && documentExists();
+    }
+
+    /**
+     * @description Logs of vehicle maintenance and repairs.
+     * @path /maintenance_logs/{logId}
+     * @allow (all) if user is a Fleet Manager.
+     * @deny (read/write) for non-managers.
+     * @principle Manager-only access for sensitive asset health data.
+     */
+    match /maintenance_logs/{logId} {
+      allow get, list: if isFleetManager();
+      allow create: if isFleetManager();
+      allow update, delete: if isFleetManager() && documentExists();
+    }
+
+    /**
+     * @description Tracking of fuel purchases and consumption.
+     * @path /fuel_logs/{logId}
+     * @allow (get, list) if user is FM or Financial Analyst.
+     * @allow (write) if user is FM.
+     * @principle Financial oversight access for analysts.
+     */
+    match /fuel_logs/{logId} {
+      allow get, list: if isFleetManager() || isFinancialAnalyst();
+      allow create: if isFleetManager();
+      allow update, delete: if isFleetManager() && documentExists();
+    }
+
+    /**
+     * @description General operational expenses.
+     * @path /expenses/{expenseId}
+     * @allow (get, list) if user is FM or Financial Analyst.
+     * @allow (write) if user is FM.
+     * @principle RBAC for financial data integrity.
+     */
+    match /expenses/{expenseId} {
+      allow get, list: if isFleetManager() || isFinancialAnalyst();
+      allow create: if isFleetManager();
+      allow update, delete: if isFleetManager() && documentExists();
+    }
+  }
+}

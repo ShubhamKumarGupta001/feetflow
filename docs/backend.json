@@ -1,0 +1,575 @@
+{
+  "entities": {
+    "Role": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Role",
+      "type": "object",
+      "description": "Defines user roles and their access scopes within the FleetFlow application, implementing Role-Based Access Control (RBAC).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Role entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the role (e.g., 'Fleet Manager', 'Dispatcher', 'Safety Officer', 'Financial Analyst')."
+        },
+        "accessScope": {
+          "type": "string",
+          "description": "A textual description of the access privileges associated with this role."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "accessScope"
+      ]
+    },
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user account in the FleetFlow system, linked to a specific role for access control. Passwords and authentication tokens are handled by an external system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address, used for login.",
+          "format": "email"
+        },
+        "roleId": {
+          "type": "string",
+          "description": "Reference to the Role this user belongs to. (Relationship: Role 1:N User)"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "roleId"
+      ]
+    },
+    "Vehicle": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Vehicle",
+      "type": "object",
+      "description": "Manages details and current status of individual vehicles within the fleet, serving as a central asset registry.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Vehicle entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "A user-friendly name or identifier for the vehicle (e.g., 'Van-05')."
+        },
+        "model": {
+          "type": "string",
+          "description": "The make and model of the vehicle."
+        },
+        "licensePlate": {
+          "type": "string",
+          "description": "The unique license plate number of the vehicle."
+        },
+        "maxCapacityKg": {
+          "type": "number",
+          "description": "The maximum cargo weight capacity of the vehicle in kilograms."
+        },
+        "odometerKm": {
+          "type": "number",
+          "description": "The current odometer reading of the vehicle in kilometers."
+        },
+        "acquisitionCost": {
+          "type": "number",
+          "description": "The initial cost of acquiring the vehicle."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current operational status of the vehicle (e.g., 'Available', 'On Trip', 'In Shop', 'Retired')."
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of vehicle (e.g., 'Truck', 'Van', 'Bike')."
+        },
+        "region": {
+          "type": "string",
+          "description": "The operational region or base of the vehicle."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "model",
+        "licensePlate",
+        "maxCapacityKg",
+        "odometerKm",
+        "acquisitionCost",
+        "status",
+        "type",
+        "region"
+      ]
+    },
+    "Driver": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Driver",
+      "type": "object",
+      "description": "Stores comprehensive information about drivers, including their licensing, availability, and performance metrics.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Driver entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the driver."
+        },
+        "licenseCategory": {
+          "type": "string",
+          "description": "The category of the driver's license (e.g., 'Class A', 'Class B')."
+        },
+        "licenseExpiryDate": {
+          "type": "string",
+          "description": "The expiration date of the driver's license.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current duty status of the driver (e.g., 'On Duty', 'Off Duty', 'Suspended')."
+        },
+        "safetyScore": {
+          "type": "number",
+          "description": "A calculated safety score for the driver, reflecting their driving record and compliance."
+        },
+        "totalTrips": {
+          "type": "number",
+          "description": "The total number of trips assigned to the driver."
+        },
+        "completedTrips": {
+          "type": "number",
+          "description": "The number of trips successfully completed by the driver."
+        },
+        "completionRate": {
+          "type": "number",
+          "description": "The percentage of assigned trips that were completed by the driver."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "licenseCategory",
+        "licenseExpiryDate",
+        "status",
+        "safetyScore",
+        "totalTrips",
+        "completedTrips",
+        "completionRate"
+      ]
+    },
+    "Trip": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Trip",
+      "type": "object",
+      "description": "Details about a specific dispatch journey, including assigned vehicle and driver, cargo, route, and financial information.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Trip entity."
+        },
+        "vehicleId": {
+          "type": "string",
+          "description": "Reference to the Vehicle assigned to this trip. (Relationship: Vehicle 1:N Trip)"
+        },
+        "driverId": {
+          "type": "string",
+          "description": "Reference to the Driver assigned to this trip. (Relationship: Driver 1:N Trip)"
+        },
+        "cargoWeightKg": {
+          "type": "number",
+          "description": "The weight of the cargo for this trip in kilograms."
+        },
+        "origin": {
+          "type": "string",
+          "description": "The starting location of the trip."
+        },
+        "destination": {
+          "type": "string",
+          "description": "The destination location of the trip."
+        },
+        "revenue": {
+          "type": "number",
+          "description": "The revenue generated or expected from this trip."
+        },
+        "startOdometerKm": {
+          "type": "number",
+          "description": "The odometer reading of the vehicle at the start of the trip in kilometers."
+        },
+        "endOdometerKm": {
+          "type": "number",
+          "description": "The odometer reading of the vehicle at the end of the trip in kilometers. Populated upon trip completion."
+        },
+        "distanceKm": {
+          "type": "number",
+          "description": "The total distance covered during the trip in kilometers, calculated from start and end odometer readings."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current lifecycle status of the trip (e.g., 'Draft', 'Dispatched', 'Completed', 'Cancelled')."
+        },
+        "dispatchDate": {
+          "type": "string",
+          "description": "The date and time when the trip was dispatched.",
+          "format": "date-time"
+        },
+        "completionDate": {
+          "type": "string",
+          "description": "The date and time when the trip was completed. Populated upon trip completion.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "vehicleId",
+        "driverId",
+        "cargoWeightKg",
+        "origin",
+        "destination",
+        "revenue",
+        "startOdometerKm",
+        "status",
+        "dispatchDate"
+      ]
+    },
+    "MaintenanceLog": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "MaintenanceLog",
+      "type": "object",
+      "description": "Records details of maintenance and service activities performed on vehicles, including type, cost, and date.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the MaintenanceLog entity."
+        },
+        "vehicleId": {
+          "type": "string",
+          "description": "Reference to the Vehicle that underwent maintenance. (Relationship: Vehicle 1:N MaintenanceLog)"
+        },
+        "serviceType": {
+          "type": "string",
+          "description": "The type of service or maintenance performed (e.g., 'Oil Change', 'Tire Rotation', 'Engine Repair')."
+        },
+        "cost": {
+          "type": "number",
+          "description": "The total cost of the maintenance service."
+        },
+        "date": {
+          "type": "string",
+          "description": "The date and time when the maintenance was performed or logged.",
+          "format": "date-time"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes or details about the maintenance."
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the maintenance task (e.g., 'Scheduled', 'In Progress', 'Completed', 'Cancelled')."
+        }
+      },
+      "required": [
+        "id",
+        "vehicleId",
+        "serviceType",
+        "cost",
+        "date",
+        "status"
+      ]
+    },
+    "FuelLog": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FuelLog",
+      "type": "object",
+      "description": "Tracks fuel consumption and associated costs for each vehicle, supporting financial analysis.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the FuelLog entity."
+        },
+        "vehicleId": {
+          "type": "string",
+          "description": "Reference to the Vehicle for which fuel was logged. (Relationship: Vehicle 1:N FuelLog)"
+        },
+        "liters": {
+          "type": "number",
+          "description": "The quantity of fuel added in liters."
+        },
+        "cost": {
+          "type": "number",
+          "description": "The total cost of the fuel purchase."
+        },
+        "date": {
+          "type": "string",
+          "description": "The date and time of the fuel purchase.",
+          "format": "date-time"
+        },
+        "odometerKm": {
+          "type": "number",
+          "description": "The odometer reading of the vehicle at the time of refueling in kilometers."
+        }
+      },
+      "required": [
+        "id",
+        "vehicleId",
+        "liters",
+        "cost",
+        "date",
+        "odometerKm"
+      ]
+    },
+    "Expense": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Expense",
+      "type": "object",
+      "description": "Logs various operational expenses related to vehicles, beyond just fuel and maintenance.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Expense entity."
+        },
+        "vehicleId": {
+          "type": "string",
+          "description": "Reference to the Vehicle to which this expense is attributed. (Relationship: Vehicle 1:N Expense)"
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the expense."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The monetary amount of the expense."
+        },
+        "date": {
+          "type": "string",
+          "description": "The date and time when the expense occurred or was logged.",
+          "format": "date-time"
+        },
+        "category": {
+          "type": "string",
+          "description": "The category of the expense (e.g., 'Tolls', 'Parking', 'Cleaning', 'Miscellaneous')."
+        }
+      },
+      "required": [
+        "id",
+        "vehicleId",
+        "description",
+        "amount",
+        "date",
+        "category"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores individual user profiles, including email and a reference to their primary role. Access is path-based, meaning a user can only read/write their own document.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user, matching `request.auth.uid`."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/static_roles/{roleId}",
+        "definition": {
+          "entityName": "Role",
+          "schema": {
+            "$ref": "#/backend/entities/Role"
+          },
+          "description": "A read-only collection containing definitions of the various roles (e.g., Fleet Manager, Dispatcher) and their general access scopes. Used for metadata and UI display.",
+          "params": [
+            {
+              "name": "roleId",
+              "description": "The unique identifier for a specific role."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_fleetManagers/{userId}",
+        "definition": {
+          "entityName": "Role",
+          "schema": {
+            "$ref": "#/backend/entities/Role"
+          },
+          "description": "Dedicated collection for Fleet Managers. The existence of a document here with `userId` as its ID grants 'Fleet Manager' permissions. This provides authorization independence for security rules.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who is a Fleet Manager."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_dispatchers/{userId}",
+        "definition": {
+          "entityName": "Role",
+          "schema": {
+            "$ref": "#/backend/entities/Role"
+          },
+          "description": "Dedicated collection for Dispatchers. The existence of a document here with `userId` as its ID grants 'Dispatcher' permissions. This provides authorization independence for security rules.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who is a Dispatcher."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_safetyOfficers/{userId}",
+        "definition": {
+          "entityName": "Role",
+          "schema": {
+            "$ref": "#/backend/entities/Role"
+          },
+          "description": "Dedicated collection for Safety Officers. The existence of a document here with `userId` as its ID grants 'Safety Officer' permissions. This provides authorization independence for security rules.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who is a Safety Officer."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_financialAnalysts/{userId}",
+        "definition": {
+          "entityName": "Role",
+          "schema": {
+            "$ref": "#/backend/entities/Role"
+          },
+          "description": "Dedicated collection for Financial Analysts. The existence of a document here with `userId` as its ID grants 'Financial Analyst' permissions. This provides authorization independence for security rules.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who is a Financial Analyst."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/vehicles/{vehicleId}",
+        "definition": {
+          "entityName": "Vehicle",
+          "schema": {
+            "$ref": "#/backend/entities/Vehicle"
+          },
+          "description": "Stores details for all fleet vehicles. Access is based on the user's role (Fleet Manager, Dispatcher, Safety Officer) as defined in the dedicated role collections, ensuring homogeneous security posture and secure list operations.",
+          "params": [
+            {
+              "name": "vehicleId",
+              "description": "The unique identifier for a vehicle."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/drivers/{driverId}",
+        "definition": {
+          "entityName": "Driver",
+          "schema": {
+            "$ref": "#/backend/entities/Driver"
+          },
+          "description": "Contains information about all drivers. Access is determined by the user's role (Fleet Manager, Dispatcher, Safety Officer), enabling secure and efficient list queries across the entire collection.",
+          "params": [
+            {
+              "name": "driverId",
+              "description": "The unique identifier for a driver."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/trips/{tripId}",
+        "definition": {
+          "entityName": "Trip",
+          "schema": {
+            "$ref": "#/backend/entities/Trip"
+          },
+          "description": "Records all dispatch journeys. Access is managed by the user's role (Fleet Manager, Dispatcher). This collection has a homogeneous security posture, allowing secure list operations. Complex validation logic for `vehicleStatus` and `driverStatus` is handled at the application layer/Cloud Functions, not directly by Firestore rules.",
+          "params": [
+            {
+              "name": "tripId",
+              "description": "The unique identifier for a trip."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/maintenance_logs/{maintenanceLogId}",
+        "definition": {
+          "entityName": "MaintenanceLog",
+          "schema": {
+            "$ref": "#/backend/entities/MaintenanceLog"
+          },
+          "description": "Logs all vehicle maintenance activities. Access is role-based (Fleet Manager) for the entire collection, ensuring secure list queries.",
+          "params": [
+            {
+              "name": "maintenanceLogId",
+              "description": "The unique identifier for a maintenance log entry."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/fuel_logs/{fuelLogId}",
+        "definition": {
+          "entityName": "FuelLog",
+          "schema": {
+            "$ref": "#/backend/entities/FuelLog"
+          },
+          "description": "Tracks fuel consumption for vehicles. Access is restricted by role (Fleet Manager, Financial Analyst) for the entire collection, supporting secure list operations.",
+          "params": [
+            {
+              "name": "fuelLogId",
+              "description": "The unique identifier for a fuel log entry."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/expenses/{expenseId}",
+        "definition": {
+          "entityName": "Expense",
+          "schema": {
+            "$ref": "#/backend/entities/Expense"
+          },
+          "description": "Records general operational expenses related to vehicles. Access is governed by roles (Fleet Manager, Financial Analyst), allowing for secure and efficient listing of all expenses.",
+          "params": [
+            {
+              "name": "expenseId",
+              "description": "The unique identifier for an expense entry."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The FleetFlow Firestore structure is designed to adhere strictly to the core design principles, prioritizing Authorization Independence and Query As Permissions (QAPs) through structural segregation and a robust Role-Based Access Control (RBAC) model.Authorization Independence is primarily achieved by implementing roles using an 'existence over content' pattern. Instead of storing a user's role ID in their 'users/{userId}' document and requiring a 'get()' operation in security rules for every access check to other collections, dedicated role collections are used (e.g., '/roles_fleetManagers/{userId}', '/roles_dispatchers/{userId}'). A user's authorization to perform an action is determined by the *existence* of a document in the relevant role collection with their UID as the document ID. This completely eliminates 'get()' calls for role lookups within rules for operational data, making authorization checks atomic, highly performant, and simple to debug. This also enables atomic creation/update operations across related documents without breaking rules, as the authorization decision is independent of the content of other documents.Structural Segregation is applied by ensuring each top-level collection holds documents with a homogeneous security posture. For example, all 'Vehicle' documents in the '/vehicles' collection have the same general access requirements (e.g., Fleet Managers can manage, Dispatchers can read for assignment). There is no mixing of 'public' and 'private' vehicles within the same collection. This directly supports QAPs: a client querying '/vehicles' can perform a simple 'list' operation, and the security rules will securely permit or deny access to the *entire collection* based on the user's role, without needing to filter results client-side or for rules to act as filters. Each collection's security rules will directly check for the existence of the user's UID in the appropriate role collections, ensuring that only authorized roles can access the data, making 'list' operations inherently secure and efficient.The `User` entity also includes `roleId` as a denormalized field. While the primary authorization method relies on dedicated role collections for atomic rule checks, this field provides client-side context for UI rendering and can serve as a fallback or secondary validation mechanism. For the `User` document itself, access is path-based: `users/{userId}` ensures a user can only read/write their own profile.Operational data such as `Vehicles`, `Drivers`, `Trips`, `MaintenanceLogs`, `FuelLogs`, and `Expenses` are treated as organizational assets. Their access is determined solely by the user's role within the organization, not by individual user ownership of specific documents. This eliminates the need for `ownerId` or `members` maps on these documents and further simplifies security rules."
+  }
+}
