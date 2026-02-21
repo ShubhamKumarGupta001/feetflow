@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -5,7 +6,7 @@ import {
   useCollection, 
   useFirestore, 
   useMemoFirebase, 
-  addDocumentNonBlocking,
+  setDocumentNonBlocking,
   updateDocumentNonBlocking,
   useUser,
   useDoc
@@ -37,6 +38,7 @@ export default function TripsPage() {
   const { user } = useUser();
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [formData, setFormData] = useState({
     vehicleId: '',
@@ -44,7 +46,6 @@ export default function TripsPage() {
     cargoWeightKg: '',
     origin: '',
     destination: '',
-    estimatedFuelCost: ''
   });
 
   const userRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
@@ -68,40 +69,59 @@ export default function TripsPage() {
     return drivers?.filter(d => d.status === 'On Duty' || d.status === 'Available') || [];
   }, [drivers]);
 
-  const handleDispatch = (e: React.FormEvent) => {
+  const handleDispatch = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (!formData.vehicleId || !formData.driverId) {
       toast({ variant: "destructive", title: "Missing Assignment", description: "Please select both a vehicle and a driver." });
       return;
     }
 
     const vehicle = vehicles?.find(v => v.id === formData.vehicleId);
+    const cargoWeight = Number(formData.cargoWeightKg) || 0;
     
-    if (Number(formData.cargoWeightKg) > (vehicle?.maxCapacityKg || 0)) {
+    if (cargoWeight > (vehicle?.maxCapacityKg || 0)) {
       toast({ variant: "destructive", title: "Overload Detected", description: "Cargo exceeds vehicle payload capacity." });
       return;
     }
 
+    setIsSubmitting(true);
     const tripId = `TRIP-${Math.floor(1000 + Math.random() * 9000)}`;
-    addDocumentNonBlocking(tRef!, {
-      id: tripId,
-      ...formData,
-      cargoWeightKg: Number(formData.cargoWeightKg),
-      revenue: 0,
-      startOdometerKm: vehicle?.odometerKm || 0,
-      status: 'Dispatched',
-      dispatchDate: new Date().toISOString(),
-      createdAt: serverTimestamp()
-    });
+    const tripDocRef = doc(firestore, 'trips', tripId);
 
-    const vehicleRef = doc(firestore, 'vehicles', formData.vehicleId);
-    updateDocumentNonBlocking(vehicleRef, { status: 'On Trip' });
+    try {
+      // 1. Create the Trip Record with explicit ID mapping
+      setDocumentNonBlocking(tripDocRef, {
+        id: tripId,
+        vehicleId: formData.vehicleId,
+        driverId: formData.driverId,
+        cargoWeightKg: cargoWeight,
+        origin: formData.origin,
+        destination: formData.destination,
+        revenue: 0,
+        startOdometerKm: vehicle?.odometerKm || 0,
+        status: 'Dispatched',
+        dispatchDate: new Date().toISOString(),
+        createdAt: serverTimestamp()
+      }, { merge: true });
 
-    const driverRef = doc(firestore, 'drivers', formData.driverId);
-    updateDocumentNonBlocking(driverRef, { status: 'On Trip' });
+      // 2. Update Vehicle Status
+      const vehicleRef = doc(firestore, 'vehicles', formData.vehicleId);
+      updateDocumentNonBlocking(vehicleRef, { status: 'On Trip' });
 
-    toast({ title: "Dispatch Confirmed", description: `${tripId} is now active.` });
-    setFormData({ vehicleId: '', driverId: '', cargoWeightKg: '', origin: '', destination: '', estimatedFuelCost: '' });
+      // 3. Update Driver Status
+      const driverRef = doc(firestore, 'drivers', formData.driverId);
+      updateDocumentNonBlocking(driverRef, { status: 'On Trip' });
+
+      toast({ title: "Dispatch Confirmed", description: `${tripId} is now active and tracked.` });
+      
+      // Reset Form
+      setFormData({ vehicleId: '', driverId: '', cargoWeightKg: '', origin: '', destination: '' });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Dispatch Failed", description: "There was a problem syncing with the fleet ledger." });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const filteredTrips = useMemo(() => {
@@ -254,10 +274,10 @@ export default function TripsPage() {
 
               <Button 
                 type="submit" 
-                disabled={isVehiclesLoading || isDriversLoading}
+                disabled={isVehiclesLoading || isDriversLoading || isSubmitting}
                 className="w-full h-12 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold shadow-xl shadow-primary/20 transition-all active:scale-95"
               >
-                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Navigation className="w-5 h-5 mr-2" /> Confirm Dispatch</>}
+                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Navigation className="w-5 h-5 mr-2" /> Confirm Dispatch</>}
               </Button>
             </form>
           </CardContent>

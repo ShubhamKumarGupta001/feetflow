@@ -6,7 +6,7 @@ import {
   useCollection, 
   useFirestore, 
   useMemoFirebase, 
-  addDocumentNonBlocking,
+  setDocumentNonBlocking,
   updateDocumentNonBlocking,
   useUser,
   useDoc
@@ -57,41 +57,35 @@ export default function MaintenancePage() {
   const userRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
 
-  const roleCollection = useMemo(() => {
-    if (!userProfile?.roleId) return null;
-    const rid = userProfile.roleId;
-    if (rid === 'dispatcher') return 'roles_dispatchers';
-    if (rid === 'safety-officer') return 'roles_safetyOfficers';
-    if (rid === 'financial-analyst') return 'roles_financialAnalysts';
-    return 'roles_fleetManagers';
-  }, [userProfile]);
-
-  const roleFlagRef = useMemoFirebase(() => (user && roleCollection) ? doc(firestore, roleCollection, user.uid) : null, [firestore, user, roleCollection]);
-  const { data: roleFlag, isLoading: isRoleFlagLoading } = useDoc(roleFlagRef);
-
-  const isAuthorized = !!roleFlag;
-
-  const maintenanceRef = useMemoFirebase(() => (!user || !isAuthorized) ? null : collection(firestore, 'maintenance_logs'), [firestore, user, isAuthorized]);
-  const vehiclesRef = useMemoFirebase(() => (!user || !isAuthorized) ? null : collection(firestore, 'vehicles'), [firestore, user, isAuthorized]);
+  const maintenanceRef = useMemoFirebase(() => collection(firestore, 'maintenance_logs'), [firestore]);
+  const vehiclesRef = useMemoFirebase(() => collection(firestore, 'vehicles'), [firestore]);
 
   const { data: logs, isLoading: isLogsLoading } = useCollection(maintenanceRef);
   const { data: vehicles, isLoading: isVehiclesLoading } = useCollection(vehiclesRef);
 
-  const isLoading = isProfileLoading || isRoleFlagLoading || isLogsLoading || isVehiclesLoading;
+  const isLoading = isProfileLoading || isLogsLoading || isVehiclesLoading;
 
   const handleCreateService = () => {
-    if (!formData.vehicleId || !formData.serviceType || !maintenanceRef) return;
+    if (!formData.vehicleId || !formData.serviceType) {
+      toast({ variant: "destructive", title: "Incomplete Data", description: "Vehicle and Service type are required." });
+      return;
+    }
 
-    const logId = Math.floor(100 + Math.random() * 900).toString();
+    const logId = `MAINT-${Math.floor(1000 + Math.random() * 9000)}`;
+    const logDocRef = doc(firestore, 'maintenance_logs', logId);
 
-    addDocumentNonBlocking(maintenanceRef, {
+    setDocumentNonBlocking(logDocRef, {
       id: logId,
-      ...formData,
+      vehicleId: formData.vehicleId,
+      serviceType: formData.serviceType,
+      date: formData.date,
       cost: Number(formData.cost) || 0,
+      notes: formData.notes,
       status: 'New',
       createdAt: serverTimestamp()
-    });
+    }, { merge: true });
 
+    // Update vehicle to 'In Shop'
     const vehicleRef = doc(firestore, 'vehicles', formData.vehicleId);
     updateDocumentNonBlocking(vehicleRef, { status: 'In Shop' });
 
@@ -125,7 +119,7 @@ export default function MaintenancePage() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold font-headline text-slate-900">5. Maintenance &amp; Service Logs</h2>
+          <h2 className="text-3xl font-bold font-headline text-slate-900">Maintenance &amp; Service Logs</h2>
           <p className="text-slate-500">Preventive &amp; Reactive Asset Tracking</p>
         </div>
       </div>
@@ -135,30 +129,26 @@ export default function MaintenancePage() {
           <div className="relative w-full sm:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input 
-              placeholder="Search bar ......" 
+              placeholder="Search maintenance logs..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 h-11 border-slate-200 bg-slate-50/50 rounded-xl"
             />
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="outline" className="rounded-xl border-slate-200">Group by</Button>
-            <Button variant="outline" className="rounded-xl border-slate-200">Filter</Button>
-            <Button variant="outline" className="rounded-xl border-slate-200">Sort by...</Button>
-            
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
               <DialogTrigger asChild>
-                <Button className="rounded-xl bg-primary shadow-lg shadow-primary/20 h-11 px-6">
-                  Create New Service
+                <Button className="rounded-xl bg-primary shadow-lg shadow-primary/20 h-11 px-6 font-bold">
+                  Log New Service
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[450px] rounded-2xl">
                 <DialogHeader>
-                  <DialogTitle className="text-2xl font-bold font-headline">New Service</DialogTitle>
+                  <DialogTitle className="text-2xl font-bold font-headline">New Service Log</DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-6 py-4">
                   <div className="grid gap-2">
-                    <Label>Vehicle Name:</Label>
+                    <Label>Select Vehicle:</Label>
                     <Select 
                       value={formData.vehicleId} 
                       onValueChange={(val) => setFormData({...formData, vehicleId: val})}
@@ -176,7 +166,7 @@ export default function MaintenancePage() {
                     </Select>
                   </div>
                   <div className="grid gap-2">
-                    <Label>Issue/service:</Label>
+                    <Label>Service Type:</Label>
                     <Input 
                       placeholder="e.g. Engine Issue, Oil Change"
                       value={formData.serviceType}
@@ -185,7 +175,7 @@ export default function MaintenancePage() {
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label>Date:</Label>
+                    <Label>Scheduled Date:</Label>
                     <Input 
                       type="date"
                       value={formData.date}
@@ -196,7 +186,7 @@ export default function MaintenancePage() {
                   <div className="grid gap-2">
                     <Label>Estimated Cost:</Label>
                     <Input 
-                      placeholder="Cost in numeric"
+                      placeholder="Cost (numeric)"
                       type="number"
                       value={formData.cost}
                       onChange={(e) => setFormData({...formData, cost: e.target.value})}
@@ -207,14 +197,14 @@ export default function MaintenancePage() {
                 <DialogFooter className="flex gap-3 sm:justify-start">
                   <Button 
                     onClick={handleCreateService}
-                    className="bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-8"
+                    className="bg-primary hover:bg-primary/90 text-white rounded-xl px-10 font-bold"
                   >
-                    Create
+                    Confirm Log
                   </Button>
                   <Button 
                     variant="outline" 
                     onClick={() => setIsModalOpen(false)}
-                    className="border-[#DC2626] text-[#DC2626] hover:bg-[#DC2626]/5 rounded-xl px-8"
+                    className="border-destructive text-destructive hover:bg-destructive/5 rounded-xl px-10 font-bold"
                   >
                     Cancel
                   </Button>
@@ -232,12 +222,12 @@ export default function MaintenancePage() {
             <Table>
               <TableHeader className="bg-slate-50/50">
                 <TableRow className="border-none hover:bg-transparent">
-                  <TableHead className="w-[100px] h-14 pl-8 text-xs font-bold uppercase text-[#FF69B4]">Log ID</TableHead>
-                  <TableHead className="h-14 text-xs font-bold uppercase text-[#FF69B4]">Vehicle</TableHead>
-                  <TableHead className="h-14 text-xs font-bold uppercase text-[#FF69B4]">Issue/Service</TableHead>
-                  <TableHead className="h-14 text-xs font-bold uppercase text-[#FF69B4]">Date</TableHead>
-                  <TableHead className="h-14 text-xs font-bold uppercase text-[#FF69B4]">Cost</TableHead>
-                  <TableHead className="h-14 pr-8 text-right text-xs font-bold uppercase text-[#FF69B4]">Status</TableHead>
+                  <TableHead className="w-[120px] h-14 pl-8 text-xs font-bold uppercase text-slate-400">Log ID</TableHead>
+                  <TableHead className="h-14 text-xs font-bold uppercase text-slate-400">Vehicle</TableHead>
+                  <TableHead className="h-14 text-xs font-bold uppercase text-slate-400">Service Type</TableHead>
+                  <TableHead className="h-14 text-xs font-bold uppercase text-slate-400">Date</TableHead>
+                  <TableHead className="h-14 text-xs font-bold uppercase text-slate-400">Cost</TableHead>
+                  <TableHead className="h-14 pr-8 text-right text-xs font-bold uppercase text-slate-400">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -245,13 +235,13 @@ export default function MaintenancePage() {
                   const vehicle = vehicles?.find(v => v.id === log.vehicleId);
                   return (
                     <TableRow key={log.id} className="h-16 border-slate-100 hover:bg-slate-50/50 transition-colors">
-                      <TableCell className="pl-8 font-medium text-primary">{log.id}</TableCell>
-                      <TableCell className="font-bold text-primary">{vehicle?.name || 'Unknown'}</TableCell>
-                      <TableCell className="text-primary">{log.serviceType}</TableCell>
-                      <TableCell className="text-primary">{log.date}</TableCell>
-                      <TableCell className="text-primary">{log.cost ? `${log.cost / 1000}k` : '0'}</TableCell>
+                      <TableCell className="pl-8 font-black text-primary/70 text-xs">{log.id}</TableCell>
+                      <TableCell className="font-bold text-slate-900">{vehicle?.name || 'Unknown'}</TableCell>
+                      <TableCell className="font-medium text-slate-600">{log.serviceType}</TableCell>
+                      <TableCell className="text-slate-500">{log.date}</TableCell>
+                      <TableCell className="font-bold text-slate-900">Rs. {log.cost?.toLocaleString()}</TableCell>
                       <TableCell className="pr-8 text-right">
-                        <Badge className={`rounded-full px-4 py-0.5 font-medium border-none ${
+                        <Badge className={`rounded-full px-4 py-0.5 font-bold border-none ${
                           log.status === 'New' ? 'bg-blue-100 text-blue-700' : 
                           log.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 
                           'bg-amber-100 text-amber-700'
@@ -268,8 +258,8 @@ export default function MaintenancePage() {
 
           {!isLoading && filteredLogs.length === 0 && (
             <div className="py-24 text-center">
-              <Wrench className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-              <h3 className="text-lg font-bold text-slate-900">No Maintenance Records</h3>
+              <Wrench className="w-12 h-12 text-slate-100 mx-auto mb-4" />
+              <h3 className="text-lg font-bold text-slate-400 font-headline uppercase tracking-tighter">No Maintenance History</h3>
             </div>
           )}
         </CardContent>
