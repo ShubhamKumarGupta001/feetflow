@@ -1,148 +1,198 @@
 
 "use client";
 
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, AreaChart, Area, Legend, ComposedChart
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Download, Filter, TrendingUp, Fuel, BarChart3, Receipt } from 'lucide-react';
 
-const monthlyPerformance = [
-  { month: 'Jul', target: 4000, actual: 4400, efficiency: 85 },
-  { month: 'Aug', target: 4500, actual: 4800, efficiency: 88 },
-  { month: 'Sep', target: 4800, actual: 4600, efficiency: 92 },
-  { month: 'Oct', target: 5000, actual: 5200, efficiency: 90 },
-  { month: 'Nov', target: 5200, actual: 6100, efficiency: 95 },
-  { month: 'Dec', target: 5500, actual: 6500, efficiency: 98 },
+const kpis = [
+  { 
+    title: "Total Fuel Cost", 
+    value: "Rs. 2.6 L", 
+    icon: Fuel,
+    color: "text-[#16A34A]",
+    bgColor: "bg-[#16A34A]/5",
+    borderColor: "border-[#16A34A]/20"
+  },
+  { 
+    title: "Fleet ROI", 
+    value: "+ 12.5%", 
+    icon: TrendingUp,
+    color: "text-primary",
+    bgColor: "bg-primary/5",
+    borderColor: "border-primary/20"
+  },
+  { 
+    title: "Utilization Rate", 
+    value: "82%", 
+    icon: BarChart3,
+    color: "text-emerald-600",
+    bgColor: "bg-emerald-50",
+    borderColor: "border-emerald-100"
+  }
 ];
 
-const segmentPerformance = [
-  { name: 'Enterprise', q1: 4500, q2: 5200, q3: 6100 },
-  { name: 'SME', q1: 3200, q2: 3800, q3: 4100 },
-  { name: 'Individual', q1: 2100, q2: 2400, q3: 2800 },
-  { name: 'Partner', q1: 1500, q2: 1800, q3: 2100 },
+const fuelEfficiencyData = [
+  { month: 'Jan', value: 5 },
+  { month: 'Feb', value: 25 },
+  { month: 'Mar', value: 45 },
+  { month: 'Apr', value: 15 },
+  { month: 'May', value: 35 },
+  { month: 'Jun', value: 55 },
+  { month: 'Jul', value: 75 },
+  { month: 'Aug', value: 85 },
+  { month: 'Sep', value: 95 },
+];
+
+const costliestVehiclesData = [
+  { name: 'VAN-03', cost: 12 },
+  { name: 'TRK-01', cost: 22 },
+  { name: 'TRK-04', cost: 45 },
+  { name: 'TRK-02', cost: 82 },
+  { name: 'TRK-05', cost: 110 },
+];
+
+const financialSummary = [
+  { month: 'Jan', revenue: 17, fuel: 6, maintenance: 2, profit: 9 },
+  { month: 'Feb', revenue: 19, fuel: 5.5, maintenance: 1.5, profit: 12 },
+  { month: 'Mar', revenue: 22, fuel: 7, maintenance: 3, profit: 12 },
+  { month: 'Apr', revenue: 15, fuel: 4.2, maintenance: 2.1, profit: 8.7 },
+  { month: 'May', revenue: 25, fuel: 8, maintenance: 4, profit: 13 },
 ];
 
 export default function AnalyticsPage() {
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold font-headline text-slate-900">Performance Analysis</h2>
-          <p className="text-slate-500">Deep dive into your business metrics and growth trends across all segments.</p>
+          <h2 className="text-3xl font-bold font-headline text-slate-900">8. Operational Analytics & Financial Reports</h2>
+          <p className="text-slate-500">Business Intelligence & Profitability Engine</p>
         </div>
-        <div className="flex gap-4">
-          <Select defaultValue="6m">
-            <SelectTrigger className="w-[180px] h-11 bg-white border-slate-200 rounded-xl">
-              <SelectValue placeholder="Select Period" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="1m">Last 30 Days</SelectItem>
-              <SelectItem value="3m">Last 3 Months</SelectItem>
-              <SelectItem value="6m">Last 6 Months</SelectItem>
-              <SelectItem value="1y">Last Year</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select defaultValue="all">
-            <SelectTrigger className="w-[180px] h-11 bg-white border-slate-200 rounded-xl">
-              <SelectValue placeholder="All Segments" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Segments</SelectItem>
-              <SelectItem value="enterprise">Enterprise</SelectItem>
-              <SelectItem value="sme">SME</SelectItem>
-              <SelectItem value="consumer">Consumer</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" className="rounded-xl border-slate-200">
+            <Filter className="w-4 h-4 mr-2" /> Filter Period
+          </Button>
+          <Button className="bg-primary hover:bg-primary/90 text-white rounded-xl h-11 px-6 shadow-lg shadow-primary/20">
+            <Download className="w-4 h-4 mr-2" /> Export PDF
+          </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-2 border-none shadow-sm">
-          <CardHeader>
-            <CardTitle className="font-headline">Target vs Actual Performance</CardTitle>
-            <CardDescription>Comparison of monthly goals against real results.</CardDescription>
+      {/* KPI Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {kpis.map((kpi, i) => (
+          <Card key={i} className={`border-2 ${kpi.borderColor} shadow-sm hover:shadow-md transition-all overflow-hidden bg-white rounded-2xl`}>
+            <CardContent className="p-8 flex flex-col items-center text-center space-y-4">
+              <div className={`p-4 rounded-2xl ${kpi.bgColor} ${kpi.color}`}>
+                <kpi.icon className="w-8 h-8" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest">{kpi.title}</h3>
+                <p className={`text-3xl font-black font-headline mt-1 ${kpi.color}`}>{kpi.value}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white">
+          <CardHeader className="border-b bg-slate-50/30">
+            <CardTitle className="text-xl font-bold font-headline flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-primary" /> Fuel Efficiency Trend (kmL)
+            </CardTitle>
           </CardHeader>
-          <CardContent className="h-[450px]">
+          <CardContent className="p-6 h-[350px]">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={monthlyPerformance}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} dy={10} />
+              <LineChart data={fuelEfficiencyData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
                 <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
                 <Tooltip 
-                  contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
                 />
-                <Legend iconType="circle" />
-                <Bar dataKey="actual" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={40} />
-                <Line type="monotone" dataKey="target" stroke="hsl(var(--accent))" strokeWidth={3} dot={{fill: 'hsl(var(--accent))', r: 4}} />
-              </ComposedChart>
+                <Line 
+                  type="monotone" 
+                  dataKey="value" 
+                  stroke="hsl(var(--primary))" 
+                  strokeWidth={4} 
+                  dot={{ r: 6, fill: 'hsl(var(--primary))', strokeWidth: 2, stroke: '#fff' }}
+                  activeDot={{ r: 8 }}
+                />
+              </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm">
-          <CardHeader>
-            <CardTitle className="font-headline">Growth Drivers</CardTitle>
-            <CardDescription>Quarterly analysis by business segment.</CardDescription>
+        <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white">
+          <CardHeader className="border-b bg-slate-50/30">
+            <CardTitle className="text-xl font-bold font-headline flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-[#16A34A]" /> Top 5 Costliest Vehicles
+            </CardTitle>
           </CardHeader>
-          <CardContent className="h-[450px]">
+          <CardContent className="p-6 h-[350px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={segmentPerformance} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
-                <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 'bold'}} />
-                <Tooltip cursor={{fill: 'transparent'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
-                <Legend iconType="circle" />
-                <Bar dataKey="q1" stackId="a" fill="#3f51b5" radius={[0, 0, 0, 0]} barSize={20} />
-                <Bar dataKey="q2" stackId="a" fill="#7df9ff" radius={[0, 0, 0, 0]} />
-                <Bar dataKey="q3" stackId="a" fill="#e2e8f0" radius={[0, 4, 4, 0]} />
+              <BarChart data={costliestVehiclesData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
+                <Tooltip 
+                  cursor={{fill: '#f8fafc'}}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                />
+                <Bar 
+                  dataKey="cost" 
+                  fill="#0F172A" 
+                  radius={[6, 6, 0, 0]} 
+                  barSize={40}
+                />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <Card className="border-none shadow-sm">
-          <CardHeader>
-            <CardTitle className="font-headline">Efficiency Metric (%)</CardTitle>
-            <CardDescription>Average operational efficiency over time.</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={monthlyPerformance}>
-                <defs>
-                  <linearGradient id="colorEfficiency" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--accent))" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="hsl(var(--accent))" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                <Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
-                <Area type="stepAfter" dataKey="efficiency" stroke="hsl(var(--accent))" strokeWidth={3} fill="url(#colorEfficiency)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-sm p-8 flex flex-col justify-center bg-slate-900 text-white relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4">
-             <Badge className="bg-accent text-primary border-none font-bold">New Report Available</Badge>
+      {/* Financial Summary Section */}
+      <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white">
+        <CardHeader className="border-b bg-[#1E40AF]/5 flex flex-col items-center justify-center py-8">
+          <div className="bg-[#1E40AF] text-white px-6 py-2 rounded-full font-bold shadow-lg flex items-center gap-2">
+            <Receipt className="w-4 h-4" />
+            Financial Summary of Month
           </div>
-          <div className="relative z-10 space-y-6">
-            <h3 className="text-3xl font-bold font-headline leading-tight">Q4 Growth Strategy <br/><span className="text-accent italic">Recommendations</span></h3>
-            <p className="text-slate-400 max-w-sm">Based on current trajectory, increasing focus on Enterprise segments could yield a 30% revenue boost by year-end.</p>
-            <div className="flex gap-4">
-              <button className="px-6 py-3 bg-white text-slate-900 font-bold rounded-xl hover:bg-slate-100 transition-colors">Download Strategy PDF</button>
-              <button className="px-6 py-3 border border-slate-700 font-bold rounded-xl hover:bg-slate-800 transition-colors">View All Insights</button>
-            </div>
-          </div>
-          <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-primary/20 blur-3xl rounded-full"></div>
-        </Card>
-      </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader className="bg-white border-b-2">
+              <TableRow className="border-none hover:bg-transparent">
+                <TableHead className="h-16 pl-8 text-sm font-black uppercase text-[#FF69B4] tracking-tighter">Month</TableHead>
+                <TableHead className="h-16 text-sm font-black uppercase text-[#FF69B4] tracking-tighter">Revenue</TableHead>
+                <TableHead className="h-16 text-sm font-black uppercase text-[#FF69B4] tracking-tighter">Fuel Cost</TableHead>
+                <TableHead className="h-16 text-sm font-black uppercase text-[#FF69B4] tracking-tighter">Maintenance</TableHead>
+                <TableHead className="h-16 pr-8 text-right text-sm font-black uppercase text-[#FF69B4] tracking-tighter">Net Profit</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {financialSummary.map((item) => (
+                <TableRow key={item.month} className="h-20 border-slate-100 hover:bg-slate-50 transition-colors">
+                  <TableCell className="pl-8 font-bold text-slate-900 text-lg">{item.month}</TableCell>
+                  <TableCell className="font-bold text-slate-700 text-lg">Rs. {item.revenue}L</TableCell>
+                  <TableCell className="font-bold text-slate-700 text-lg">Rs. {item.fuel}L</TableCell>
+                  <TableCell className="font-bold text-slate-700 text-lg">Rs. {item.maintenance}L</TableCell>
+                  <TableCell className="pr-8 text-right font-black text-[#16A34A] text-xl">
+                    Rs. {item.profit}L
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }
