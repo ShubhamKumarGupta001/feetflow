@@ -37,7 +37,8 @@ import {
   Truck,
   MapPin,
   ChevronRight,
-  Zap
+  Zap,
+  Calendar
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
@@ -45,7 +46,7 @@ import { cn } from '@/lib/utils';
 
 // Define the 4 tracking stages with professional styling
 const TRACKING_STAGES = [
-  { id: 'Scheduled', label: 'Scheduled', color: 'bg-slate-400', icon: Clock, actionLabel: 'Launch Dispatch' },
+  { id: 'Scheduled', label: 'Scheduled', color: 'bg-slate-400', icon: Calendar, actionLabel: 'Launch Dispatch' },
   { id: 'Dispatched', label: 'Dispatched', color: 'bg-blue-500', icon: Navigation, actionLabel: 'Initiate Transit' },
   { id: 'In Transit', label: 'In Transit', color: 'bg-amber-500', icon: Truck, actionLabel: 'Confirm Delivery' },
   { id: 'Completed', label: 'Delivered', color: 'bg-emerald-500', icon: CheckCircle2, actionLabel: 'Finalized' },
@@ -220,39 +221,37 @@ export default function TripsPage() {
                     const activeStage = TRACKING_STAGES[currentStageIndex];
 
                     return (
-                      <TableRow key={trip.id} className="h-28 border-slate-50 hover:bg-slate-50/50 transition-all group">
+                      <TableRow key={trip.id} className="h-32 border-slate-50 hover:bg-slate-50/50 transition-all group">
                         <TableCell className="pl-8">
                           <span className="font-mono text-xs font-bold text-slate-400 group-hover:text-primary transition-colors">{trip.id}</span>
                         </TableCell>
-                        <TableCell className="min-w-[200px]">
+                        <TableCell className="min-w-[220px]">
                           <div className="flex items-center gap-3">
-                            <div className="p-2.5 bg-primary/5 rounded-2xl text-primary shadow-sm border border-primary/10">
-                              <MapPin className="w-4 h-4" />
+                            <div className="p-3 bg-primary/5 rounded-2xl text-primary shadow-sm border border-primary/10 group-hover:scale-110 transition-transform">
+                              <MapPin className="w-5 h-5" />
                             </div>
                             <div>
-                              <div className="font-black text-slate-900 leading-none flex items-center gap-1.5 text-sm">
-                                {trip.origin} <ChevronRight className="w-3 h-3 text-slate-300" /> {trip.destination}
+                              <div className="font-black text-slate-900 leading-none flex flex-col text-sm uppercase tracking-tighter">
+                                <span className="text-slate-400 text-[10px] font-bold">FROM</span>
+                                {trip.origin}
+                                <span className="text-slate-400 text-[10px] font-bold mt-1">TO</span>
+                                {trip.destination}
                               </div>
-                              <div className="flex items-center gap-2 mt-1.5">
+                              <div className="flex items-center gap-2 mt-2">
                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-md">
                                   {trip.cargoWeightKg}KG
                                 </span>
-                                {isCompleted && (
-                                  <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-1">
-                                    <CheckCircle2 className="w-3 h-3" /> VERIFIED
-                                  </span>
-                                )}
                               </div>
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="min-w-[320px]">
-                          <div className="relative flex items-center justify-between w-full pr-4">
-                            {/* The background track line */}
-                            <div className="absolute top-1/2 left-0 w-full h-[3px] bg-slate-100 -translate-y-1/2 z-0 rounded-full" />
-                            {/* The progress line */}
+                        <TableCell className="min-w-[360px]">
+                          <div className="relative flex items-center justify-between w-full pr-8">
+                            {/* Track Background */}
+                            <div className="absolute top-1/2 left-0 w-full h-[4px] bg-slate-100 -translate-y-1/2 z-0 rounded-full" />
+                            {/* Track Active Progress with Animation */}
                             <div 
-                              className="absolute top-1/2 left-0 h-[3px] bg-primary transition-all duration-700 -translate-y-1/2 z-0 rounded-full" 
+                              className="absolute top-1/2 left-0 h-[4px] bg-primary transition-all duration-1000 ease-in-out -translate-y-1/2 z-0 rounded-full shadow-[0_0_12px_rgba(30,64,175,0.4)]" 
                               style={{ width: `${(currentStageIndex / (TRACKING_STAGES.length - 1)) * 100}%` }}
                             />
                             
@@ -264,19 +263,27 @@ export default function TripsPage() {
                               return (
                                 <div key={stage.id} className="relative z-10 flex flex-col items-center">
                                   <div className={cn(
-                                    "w-9 h-9 rounded-2xl flex items-center justify-center transition-all duration-500 border-2",
-                                    isStageCompleted ? "bg-primary border-primary text-white shadow-md" :
-                                    isStageActive ? "bg-white border-primary text-primary shadow-lg scale-110 ring-4 ring-primary/5" :
+                                    "w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-500 border-2 relative",
+                                    isStageCompleted ? "bg-primary border-primary text-white shadow-lg" :
+                                    isStageActive ? "bg-white border-primary text-primary shadow-xl scale-125 ring-8 ring-primary/5" :
                                     "bg-white border-slate-200 text-slate-300"
                                   )}>
-                                    <StageIcon className={cn("w-4 h-4", isStageActive && "animate-pulse")} />
+                                    {isStageActive && <div className="absolute -inset-1.5 bg-primary/20 rounded-2xl animate-ping" />}
+                                    <StageIcon className={cn("w-5 h-5 relative z-10", isStageActive && "animate-pulse")} />
                                   </div>
-                                  <span className={cn(
-                                    "absolute -bottom-6 whitespace-nowrap text-[9px] font-black uppercase tracking-tighter transition-colors",
-                                    isStageActive ? "text-primary" : isStageCompleted ? "text-slate-600" : "text-slate-300"
-                                  )}>
-                                    {stage.label}
-                                  </span>
+                                  <div className="absolute -bottom-10 flex flex-col items-center">
+                                    <span className={cn(
+                                      "whitespace-nowrap text-[9px] font-black uppercase tracking-tighter transition-colors",
+                                      isStageActive ? "text-primary" : isStageCompleted ? "text-slate-600" : "text-slate-300"
+                                    )}>
+                                      {stage.label}
+                                    </span>
+                                    {isStageActive && !isCompleted && (
+                                      <span className="text-[8px] font-bold text-slate-400 mt-1 whitespace-nowrap flex items-center gap-1">
+                                        <Clock className="w-2.5 h-2.5" /> ETA: {new Date(new Date(trip.dispatchDate).getTime() + 48 * 60 * 60 * 1000).toLocaleDateString()}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               );
                             })}
@@ -288,14 +295,14 @@ export default function TripsPage() {
                               size="sm" 
                               variant="outline"
                               onClick={() => advanceStage(trip)}
-                              className="h-10 rounded-xl border-primary/20 text-primary hover:bg-primary hover:text-white font-black text-[10px] uppercase tracking-widest transition-all shadow-sm active:scale-95 px-4 group/btn"
+                              className="h-11 rounded-xl border-primary/20 text-primary hover:bg-primary hover:text-white font-black text-[10px] uppercase tracking-widest transition-all shadow-sm active:scale-95 px-5 group/btn"
                             >
-                              {activeStage?.actionLabel} <ArrowRight className="w-3 h-3 ml-2 group-hover/btn:translate-x-1 transition-transform" />
+                              {activeStage?.actionLabel} <ArrowRight className="w-3.5 h-3.5 ml-2 group-hover/btn:translate-x-1 transition-transform" />
                             </Button>
                           ) : (
-                            <div className="flex items-center justify-end gap-2 text-emerald-600 font-black text-[10px] uppercase tracking-[0.2em] bg-emerald-50 px-4 py-2 rounded-xl">
-                              <Zap className="w-3 h-3 fill-emerald-600" />
-                              Cycle Complete
+                            <div className="flex items-center justify-end gap-2 text-emerald-600 font-black text-[10px] uppercase tracking-[0.2em] bg-emerald-50 px-5 py-2.5 rounded-xl border border-emerald-100">
+                              <Zap className="w-3.5 h-3.5 fill-emerald-600" />
+                              Cycle Verified
                             </div>
                           )}
                         </TableCell>
@@ -418,4 +425,3 @@ export default function TripsPage() {
     </div>
   );
 }
-
