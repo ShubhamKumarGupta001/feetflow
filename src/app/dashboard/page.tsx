@@ -1,60 +1,54 @@
+
 "use client";
 
 import { useMemo, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { 
   Search, 
-  Plus, 
   Truck, 
   Wrench, 
   Package, 
   Loader2, 
-  ArrowUpRight, 
   Filter, 
-  SortAsc,
-  User
+  SortAsc
 } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import Link from 'next/link';
 
+/**
+ * Main Dashboard Module
+ * Displays real-time operational status, KPI summaries, and a live dispatch ledger.
+ */
 export default function DashboardPage() {
   const { user } = useUser();
   const db = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
   
+  // 1. Authorization Context
   const userRef = useMemoFirebase(() => user ? doc(db, 'users', user.uid) : null, [db, user]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
 
-  const roleCollection = useMemo(() => {
-    if (!userProfile?.roleId) return null;
-    const rid = userProfile.roleId;
-    if (rid === 'dispatcher') return 'roles_dispatchers';
-    if (rid === 'safety-officer') return 'roles_safetyOfficers';
-    if (rid === 'financial-analyst') return 'roles_financialAnalysts';
-    return 'roles_fleetManagers';
+  // 2. Data Gating - Determine which collections to fetch based on role
+  const canSeeOperationalData = useMemo(() => {
+    if (!userProfile) return false;
+    const roles = ['fleet-manager', 'dispatcher', 'safety-officer', 'financial-analyst'];
+    return roles.includes(userProfile.roleId);
   }, [userProfile]);
 
-  const roleFlagRef = useMemoFirebase(() => (user && roleCollection) ? doc(db, roleCollection, user.uid) : null, [db, user, roleCollection]);
-  const { data: roleFlag, isLoading: isRoleFlagLoading } = useDoc(roleFlagRef);
-
-  const isAuthorized = !!roleFlag;
-
-  const canSeeTrips = isAuthorized && (userProfile?.roleId === 'fleet-manager' || userProfile?.roleId === 'dispatcher');
-  const canSeeVehicles = isAuthorized && (userProfile?.roleId === 'fleet-manager' || userProfile?.roleId === 'dispatcher' || userProfile?.roleId === 'safety-officer');
-
-  const vRef = useMemoFirebase(() => canSeeVehicles ? collection(db, 'vehicles') : null, [db, canSeeVehicles]);
-  const tRef = useMemoFirebase(() => canSeeTrips ? collection(db, 'trips') : null, [db, canSeeTrips]);
-  const dRef = useMemoFirebase(() => isAuthorized ? collection(db, 'drivers') : null, [db, isAuthorized]);
+  // 3. Memoized Collection References for Real-time Subscriptions
+  const vRef = useMemoFirebase(() => canSeeOperationalData ? collection(db, 'vehicles') : null, [db, canSeeOperationalData]);
+  const tRef = useMemoFirebase(() => canSeeOperationalData ? collection(db, 'trips') : null, [db, canSeeOperationalData]);
+  const dRef = useMemoFirebase(() => canSeeOperationalData ? collection(db, 'drivers') : null, [db, canSeeOperationalData]);
 
   const { data: vehicles, isLoading: vLoading } = useCollection(vRef);
   const { data: trips, isLoading: tLoading } = useCollection(tRef);
   const { data: drivers, isLoading: dLoading } = useCollection(dRef);
 
+  // 4. KPI Calculations from Live Firestore Data
   const stats = useMemo(() => {
     const active = vehicles?.filter(v => v.status === 'On Trip').length || 0;
     const inShop = vehicles?.filter(v => v.status === 'In Shop').length || 0;
@@ -67,8 +61,9 @@ export default function DashboardPage() {
     ];
   }, [vehicles, trips]);
 
-  const isLoading = isProfileLoading || isRoleFlagLoading || (isAuthorized && (vLoading || tLoading || dLoading));
+  const isLoading = isProfileLoading || (canSeeOperationalData && (vLoading || tLoading || dLoading));
 
+  // 5. Search Filtering for the Dispatch Ledger
   const filteredTrips = useMemo(() => {
     return trips?.filter(t => 
       t.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -77,7 +72,7 @@ export default function DashboardPage() {
     ) || [];
   }, [trips, searchTerm]);
 
-  if (isProfileLoading || isRoleFlagLoading) {
+  if (isProfileLoading) {
     return (
       <div className="flex h-64 w-full items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -92,7 +87,7 @@ export default function DashboardPage() {
         <div className="relative w-full lg:max-w-3xl group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input 
-            placeholder="Search bar ......" 
+            placeholder="Search active trips, assets, or destinations..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-12 h-11 border-slate-200 bg-white shadow-sm rounded-xl focus:ring-2 focus:ring-primary/20 transition-all"
@@ -103,32 +98,30 @@ export default function DashboardPage() {
             <Filter className="w-4 h-4 mr-2" /> Filter
           </Button>
           <Button variant="outline" className="h-11 rounded-xl border-slate-200 font-bold text-xs uppercase tracking-wider">
-            <SortAsc className="w-4 h-4 mr-2" /> Sort by...
+            <SortAsc className="w-4 h-4 mr-2" /> Sort
           </Button>
         </div>
       </div>
 
-      {/* Action Buttons */}
+      {/* Primary Action Suite */}
       <div className="flex justify-end gap-3">
-        {userProfile?.roleId === 'fleet-manager' || userProfile?.roleId === 'dispatcher' ? (
-          <>
-            <Link href="/dashboard/trips">
-              <Button className="bg-[#1E40AF] hover:bg-[#1E40AF]/90 text-white rounded-xl h-11 px-6 font-bold shadow-lg shadow-[#1E40AF]/20">
-                New Trip
-              </Button>
-            </Link>
-          </>
-        ) : null}
+        {(userProfile?.roleId === 'fleet-manager' || userProfile?.roleId === 'dispatcher') && (
+          <Link href="/dashboard/trips">
+            <Button className="bg-primary hover:bg-primary/90 text-white rounded-xl h-11 px-6 font-bold shadow-lg shadow-primary/20">
+              Launch Dispatch
+            </Button>
+          </Link>
+        )}
         {userProfile?.roleId === 'fleet-manager' && (
           <Link href="/dashboard/vehicles">
-            <Button className="bg-[#1E40AF] hover:bg-[#1E40AF]/90 text-white rounded-xl h-11 px-6 font-bold shadow-lg shadow-[#1E40AF]/20">
-              New Vehicle
+            <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-xl h-11 px-6 font-bold">
+              Add Vehicle
             </Button>
           </Link>
         )}
       </div>
 
-      {/* KPI Cards */}
+      {/* Live KPI Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {stats.map((kpi, i) => (
           <Card key={i} className="border border-slate-200 shadow-sm rounded-3xl overflow-hidden bg-white hover:border-primary/20 transition-all group">
@@ -142,15 +135,15 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Operational Ledger Table */}
+      {/* Operational Ledger: Live Trip Table */}
       <Card className="border border-slate-200 shadow-sm rounded-3xl overflow-hidden bg-white">
         <CardContent className="p-0">
           <Table>
             <TableHeader className="bg-white border-b-2">
               <TableRow className="border-none hover:bg-transparent">
-                <TableHead className="h-16 pl-8 text-sm font-black uppercase text-[#FF69B4] tracking-tighter">Trip</TableHead>
-                <TableHead className="h-16 text-sm font-black uppercase text-[#FF69B4] tracking-tighter text-center">Vehicle</TableHead>
-                <TableHead className="h-16 text-sm font-black uppercase text-[#FF69B4] tracking-tighter text-center">Driver</TableHead>
+                <TableHead className="h-16 pl-8 text-sm font-black uppercase text-[#FF69B4] tracking-tighter">Trip Reference</TableHead>
+                <TableHead className="h-16 text-sm font-black uppercase text-[#FF69B4] tracking-tighter text-center">Assigned Asset</TableHead>
+                <TableHead className="h-16 text-sm font-black uppercase text-[#FF69B4] tracking-tighter text-center">Operator</TableHead>
                 <TableHead className="h-16 pr-8 text-right text-sm font-black uppercase text-[#FF69B4] tracking-tighter">Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -170,7 +163,7 @@ export default function DashboardPage() {
                       <TableCell className="pl-8">
                         <div className="flex items-center gap-3">
                           <div className="w-2 h-2 rounded-full bg-slate-300 group-hover:bg-primary transition-colors"></div>
-                          <span className="font-bold text-slate-900">{trip.origin} → {trip.destination}</span>
+                          <span className="font-bold text-slate-900 tracking-tight">{trip.origin} → {trip.destination}</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-center">
@@ -186,7 +179,7 @@ export default function DashboardPage() {
                             trip.status === 'Completed' ? 'text-emerald-600' : 
                             trip.status === 'Dispatched' ? 'text-amber-600' : 'text-slate-400'
                           }`}>
-                            {trip.status === 'Dispatched' ? 'On Trip' : trip.status}
+                            {trip.status === 'Dispatched' ? 'On Way' : trip.status}
                           </span>
                           <div className="w-1.5 h-1.5 rounded-full bg-slate-300 mt-1"></div>
                         </div>
@@ -198,7 +191,7 @@ export default function DashboardPage() {
                 <TableRow>
                   <TableCell colSpan={4} className="h-48 text-center flex flex-col items-center justify-center py-20">
                     <Package className="w-12 h-12 text-slate-100 mb-4" />
-                    <p className="text-slate-400 font-bold">No operational data found.</p>
+                    <p className="text-slate-400 font-bold">No operational journeys recorded.</p>
                   </TableCell>
                 </TableRow>
               )}
