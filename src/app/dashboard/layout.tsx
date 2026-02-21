@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useEffect } from 'react';
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarGroup, SidebarGroupLabel } from '@/components/ui/sidebar';
 import { 
   LayoutDashboard, 
@@ -11,13 +12,15 @@ import {
   LineChart, 
   Settings, 
   LogOut, 
-  BarChart3, 
   Bell,
-  GaugeCircle
+  GaugeCircle,
+  Loader2
 } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useUser, useAuth } from '@/firebase';
+import { signOut } from 'firebase/auth';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
@@ -31,6 +34,34 @@ const navItems = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, isUserLoading } = useUser();
+  const auth = useAuth();
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push('/auth/login');
+    }
+  }, [user, isUserLoading, router]);
+
+  const handleLogout = () => {
+    signOut(auth).then(() => {
+      router.push('/');
+    });
+  };
+
+  if (isUserLoading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-10 h-10 animate-spin text-primary" />
+          <p className="text-slate-500 font-medium animate-pulse">Authenticating FleetFlow...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) return null;
 
   return (
     <SidebarProvider>
@@ -38,8 +69,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Sidebar className="border-r border-sidebar-border shadow-xl">
           <SidebarHeader className="p-6 border-b border-sidebar-border">
             <Link href="/" className="flex items-center gap-2 group">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center group-hover:rotate-12 transition-transform">
-                <Truck className="text-white w-5 h-5" />
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center group-hover:rotate-12 transition-transform text-white">
+                <Truck className="w-5 h-5" />
               </div>
               <span className="font-headline text-xl font-bold tracking-tight text-white">Fleet Flow</span>
             </Link>
@@ -74,7 +105,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton className="h-11 rounded-lg px-4 hover:bg-white/10 transition-colors">
+                  <SidebarMenuButton 
+                    onClick={handleLogout}
+                    className="h-11 rounded-lg px-4 hover:bg-white/10 transition-colors"
+                  >
                     <LogOut className="w-5 h-5 mr-3 text-sidebar-foreground/70" />
                     <span>Logout</span>
                   </SidebarMenuButton>
@@ -96,12 +130,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </button>
               <div className="flex items-center gap-3 border-l pl-6">
                 <div className="text-right hidden sm:block">
-                  <p className="text-sm font-bold text-slate-900 leading-none">Admin User</p>
-                  <p className="text-xs text-slate-500 font-medium">Fleet Manager</p>
+                  <p className="text-sm font-bold text-slate-900 leading-none">{user.email?.split('@')[0] || 'User'}</p>
+                  <p className="text-xs text-slate-500 font-medium uppercase tracking-tighter">Fleet Manager</p>
                 </div>
                 <Avatar className="h-10 w-10 border-2 border-primary/10">
-                  <AvatarImage src="https://picsum.photos/seed/fleetmanager/150/150" />
-                  <AvatarFallback>AM</AvatarFallback>
+                  <AvatarImage src={`https://picsum.photos/seed/${user.uid}/150/150`} />
+                  <AvatarFallback>{user.email?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
                 </Avatar>
               </div>
             </div>

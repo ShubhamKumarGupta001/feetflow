@@ -7,10 +7,11 @@ import {
   useFirestore, 
   useMemoFirebase, 
   addDocumentNonBlocking,
-  deleteDocumentNonBlocking
+  deleteDocumentNonBlocking,
+  useUser
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -36,6 +37,7 @@ import {
 import { Label } from '@/components/ui/label';
 
 export default function VehiclesPage() {
+  const { user } = useUser();
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -50,33 +52,36 @@ export default function VehiclesPage() {
     name: ''
   });
 
-  // Fetch Vehicles
-  const vehiclesRef = useMemoFirebase(() => collection(firestore, 'vehicles'), [firestore]);
+  // Fetch Vehicles - Only if user is authenticated
+  const vehiclesRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return collection(firestore, 'vehicles');
+  }, [firestore, user]);
+  
   const { data: vehicles, isLoading } = useCollection(vehiclesRef);
 
   const filteredVehicles = vehicles?.filter(v => 
-    v.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    v.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    v.name.toLowerCase().includes(searchTerm.toLowerCase())
+    v.licensePlate?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    v.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    v.name?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
   const handleSave = () => {
-    if (!formData.licensePlate || !formData.model) return;
+    if (!formData.licensePlate || !formData.model || !vehiclesRef) return;
 
-    // Use name as license plate if not provided, for user convenience
     const vehicleName = formData.name || `Vehicle-${formData.licensePlate}`;
 
     addDocumentNonBlocking(vehiclesRef, {
+      id: crypto.randomUUID(),
       ...formData,
       name: vehicleName,
       maxCapacityKg: Number(formData.maxCapacityKg),
       odometerKm: Number(formData.odometerKm),
-      acquisitionCost: 0, // Default for now
+      acquisitionCost: 0,
       status: 'Available',
-      region: 'Central', // Default for now
+      region: 'Central',
     });
 
-    // Reset and Close
     setFormData({
       licensePlate: '',
       maxCapacityKg: '',
@@ -181,12 +186,12 @@ export default function VehiclesPage() {
         </Dialog>
       </div>
 
-      <Card className="border-none shadow-sm overflow-hidden">
+      <Card className="border-none shadow-sm overflow-hidden bg-white">
         <CardHeader className="p-6 bg-white border-b flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="relative w-full sm:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input 
-              placeholder="Search bar ..." 
+              placeholder="Search vehicles..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 h-11 border-slate-200 bg-slate-50/50 rounded-xl"
@@ -198,9 +203,6 @@ export default function VehiclesPage() {
             </Button>
             <Button variant="outline" className="rounded-xl border-slate-200">
               <Filter className="w-4 h-4 mr-2" /> Filter
-            </Button>
-            <Button variant="outline" className="rounded-xl border-slate-200">
-              Sort by <ArrowUpDown className="w-4 h-4 ml-2" />
             </Button>
           </div>
         </CardHeader>
@@ -220,7 +222,7 @@ export default function VehiclesPage() {
                   <TableHead className="h-14 text-xs font-bold uppercase text-slate-500">Type</TableHead>
                   <TableHead className="h-14 text-xs font-bold uppercase text-slate-500">Payload</TableHead>
                   <TableHead className="h-14 text-xs font-bold uppercase text-slate-500">Odometer</TableHead>
-                  <TableHead className="h-14 text-xs font-bold uppercase text-slate-500">Status</TableHead>
+                  <TableHead className="h-14 text-xs font-bold uppercase text-slate-500 text-center">Status</TableHead>
                   <TableHead className="h-14 pr-8 text-right text-xs font-bold uppercase text-slate-500">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -232,14 +234,14 @@ export default function VehiclesPage() {
                     <TableCell className="text-slate-700">{vehicle.model}</TableCell>
                     <TableCell className="text-slate-700">{vehicle.type}</TableCell>
                     <TableCell className="text-slate-700">{vehicle.maxCapacityKg} kg</TableCell>
-                    <TableCell className="text-slate-700 font-mono">{vehicle.odometerKm.toLocaleString()}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-slate-700 font-mono">{vehicle.odometerKm?.toLocaleString()}</TableCell>
+                    <TableCell className="text-center">
                       <Badge className={`rounded-full px-3 py-0.5 font-medium border-none ${
                         vehicle.status === 'Available' ? 'bg-emerald-100 text-emerald-700' : 
                         vehicle.status === 'On Trip' ? 'bg-blue-100 text-blue-700' : 
                         vehicle.status === 'In Shop' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
                       }`}>
-                        {vehicle.status === 'Available' ? 'Idle' : vehicle.status}
+                        {vehicle.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="pr-8 text-right">
@@ -265,13 +267,6 @@ export default function VehiclesPage() {
               </div>
               <h3 className="text-lg font-bold text-slate-900">No Vehicles Found</h3>
               <p className="text-slate-500 max-w-xs mx-auto mt-2">Try adjusting your search or add your first vehicle to the fleet registry.</p>
-              <Button 
-                variant="outline" 
-                onClick={() => setIsModalOpen(true)}
-                className="mt-6 rounded-xl border-primary text-primary"
-              >
-                Add Your First Vehicle
-              </Button>
             </div>
           )}
         </CardContent>
