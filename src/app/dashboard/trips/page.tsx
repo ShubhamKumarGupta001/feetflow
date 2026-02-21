@@ -29,14 +29,12 @@ import {
   Loader2,
   ClipboardList,
   Navigation,
-  AlertCircle,
   Weight,
   ArrowRight,
   CheckCircle2,
   Clock,
   Truck,
   MapPin,
-  ChevronRight,
   Zap,
   Calendar
 } from 'lucide-react';
@@ -249,11 +247,29 @@ export default function TripsPage() {
                           <div className="relative flex items-center justify-between w-full pr-8">
                             {/* Track Background */}
                             <div className="absolute top-1/2 left-0 w-full h-[4px] bg-slate-100 -translate-y-1/2 z-0 rounded-full" />
-                            {/* Track Active Progress with Animation */}
+                            
+                            {/* Flowing Progress Track Animation */}
                             <div 
-                              className="absolute top-1/2 left-0 h-[4px] bg-primary transition-all duration-1000 ease-in-out -translate-y-1/2 z-0 rounded-full shadow-[0_0_12px_rgba(30,64,175,0.4)]" 
-                              style={{ width: `${(currentStageIndex / (TRACKING_STAGES.length - 1)) * 100}%` }}
+                              className={cn(
+                                "absolute top-1/2 left-0 h-[4px] transition-all duration-1000 ease-in-out -translate-y-1/2 z-0 rounded-full",
+                                !isCompleted ? "bg-gradient-to-r from-primary/40 via-primary to-primary/40 bg-[length:200%_100%] animate-[flow_2s_linear_infinite]" : "bg-emerald-500"
+                              )}
+                              style={{ 
+                                width: `${(currentStageIndex / (TRACKING_STAGES.length - 1)) * 100}%`,
+                                boxShadow: !isCompleted ? '0 0 12px rgba(30,64,175,0.3)' : 'none'
+                              }}
                             />
+                            
+                            <style jsx>{`
+                              @keyframes flow {
+                                0% { background-position: 200% 0; }
+                                100% { background-position: -200% 0; }
+                              }
+                              @keyframes breathe {
+                                0%, 100% { transform: scale(1); opacity: 1; }
+                                50% { transform: scale(1.05); opacity: 0.9; }
+                              }
+                            `}</style>
                             
                             {TRACKING_STAGES.map((stage, idx) => {
                               const StageIcon = stage.icon;
@@ -265,11 +281,10 @@ export default function TripsPage() {
                                   <div className={cn(
                                     "w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-500 border-2 relative",
                                     isStageCompleted ? "bg-primary border-primary text-white shadow-lg" :
-                                    isStageActive ? "bg-white border-primary text-primary shadow-xl scale-125 ring-8 ring-primary/5" :
+                                    isStageActive ? "bg-white border-primary text-primary shadow-xl ring-4 ring-primary/5 animate-[breathe_3s_ease-in-out_infinite]" :
                                     "bg-white border-slate-200 text-slate-300"
                                   )}>
-                                    {isStageActive && <div className="absolute -inset-1.5 bg-primary/20 rounded-2xl animate-ping" />}
-                                    <StageIcon className={cn("w-5 h-5 relative z-10", isStageActive && "animate-pulse")} />
+                                    <StageIcon className={cn("w-5 h-5 relative z-10")} />
                                   </div>
                                   <div className="absolute -bottom-10 flex flex-col items-center">
                                     <span className={cn(
