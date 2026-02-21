@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { 
   useCollection, 
   useFirestore, 
@@ -12,7 +12,7 @@ import {
   useDoc
 } from '@/firebase';
 import { collection, doc, serverTimestamp } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -32,7 +32,8 @@ import {
   ShieldAlert,
   Pencil,
   X,
-  UserPlus
+  UserPlus,
+  AlertTriangle
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -106,6 +107,8 @@ export default function PerformancePage() {
     const completed = Number(formData.completedTrips) || 0;
     const rate = total > 0 ? (completed / total) * 100 : 0;
 
+    // Use formData.status directly so that the Manager's manual choice 
+    // is not overridden by the system's expiry check.
     setDocumentNonBlocking(doc(firestore, 'drivers', driverId), {
       id: driverId,
       name: formData.name,
@@ -115,13 +118,15 @@ export default function PerformancePage() {
       totalTrips: total,
       completedTrips: completed,
       completionRate: rate,
-      status: isExpired ? 'Suspended' : formData.status,
+      status: formData.status, 
       updatedAt: serverTimestamp()
     }, { merge: true });
 
     toast({
       title: editingDriver ? "Profile Updated" : "Driver Registered",
-      description: isExpired ? "Warning: License expired! Marked as Suspended." : "Personnel record synchronized.",
+      description: isExpired 
+        ? "Warning: Driver has an expired license but was saved with selected status." 
+        : "Personnel record synchronized successfully.",
     });
 
     resetForm();
@@ -181,8 +186,8 @@ export default function PerformancePage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Class A">Class A (Heavy)</SelectItem>
-                        <SelectItem value="Class B (Van)">Class B (Van)</SelectItem>
-                        <SelectItem value="Class C (Small)">Class C (Small)</SelectItem>
+                        <SelectItem value="Class B">Class B (Van)</SelectItem>
+                        <SelectItem value="Class C">Class C (Small)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -216,10 +221,18 @@ export default function PerformancePage() {
                         <SelectItem value="On Duty">On Duty</SelectItem>
                         <SelectItem value="Off Duty">Off Duty</SelectItem>
                         <SelectItem value="Suspended">Suspended</SelectItem>
+                        <SelectItem value="Available">Available</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
+                
+                {formData.licenseExpiryDate && new Date(formData.licenseExpiryDate) < new Date() && (
+                  <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-bold">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    Warning: License is expired. Confirm status manually.
+                  </div>
+                )}
               </div>
               <DialogFooter className="flex gap-3 pt-4">
                 <Button onClick={handleSave} className="flex-1 bg-primary hover:bg-primary/90 rounded-2xl h-14 font-bold text-lg shadow-xl shadow-primary/20">
@@ -281,8 +294,9 @@ export default function PerformancePage() {
                         <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{driver.id}</div>
                       </TableCell>
                       <TableCell className="font-bold text-slate-700">{driver.licenseCategory}</TableCell>
-                      <TableCell className={`font-mono text-xs font-bold ${isExpired ? 'text-destructive' : 'text-slate-600'}`}>
+                      <TableCell className={`font-mono text-xs font-bold flex items-center gap-1 ${isExpired ? 'text-destructive' : 'text-slate-600'}`}>
                         {driver.licenseExpiryDate}
+                        {isExpired && <AlertTriangle className="w-3 h-3" />}
                       </TableCell>
                       <TableCell className="text-center">
                         <span className={`font-black text-lg ${driver.safetyScore > 90 ? 'text-emerald-600' : 'text-amber-600'}`}>
@@ -296,12 +310,13 @@ export default function PerformancePage() {
                         <div className="flex items-center justify-end gap-3">
                           <Badge className={`rounded-xl px-4 py-1.5 font-black text-[10px] uppercase tracking-widest border-none shadow-sm ${
                             driver.status === 'On Duty' ? 'bg-emerald-100 text-emerald-700' : 
-                            driver.status === 'Suspended' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'
+                            driver.status === 'Suspended' ? 'bg-red-100 text-red-700' : 
+                            driver.status === 'Available' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'
                           }`}>
                             {driver.status}
                           </Badge>
                           {canManage && (
-                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex gap-2">
                               <Button variant="ghost" size="icon" onClick={() => handleEdit(driver)} className="h-8 w-8 text-primary rounded-lg hover:bg-primary/10">
                                 <Pencil className="w-4 h-4" />
                               </Button>
