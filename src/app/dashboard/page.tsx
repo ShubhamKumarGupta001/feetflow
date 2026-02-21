@@ -1,203 +1,136 @@
 
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, AreaChart, Area
-} from 'recharts';
-import { TrendingUp, Users, ShoppingCart, DollarSign, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Search, Filter, ArrowUpDown, Plus, Truck, Wrench, Package, MoreHorizontal } from 'lucide-react';
 
-const metrics = [
+const kpis = [
   { 
-    title: "Total Revenue", 
-    value: "$128,430", 
-    change: "+12.5%", 
-    isPositive: true,
-    icon: DollarSign,
-    color: "bg-blue-500/10 text-blue-600"
+    title: "Active Fleet", 
+    value: "220", 
+    icon: Truck,
+    color: "text-emerald-600",
+    bgColor: "bg-emerald-50"
   },
   { 
-    title: "Active Users", 
-    value: "2,543", 
-    change: "+18.2%", 
-    isPositive: true,
-    icon: Users,
-    color: "bg-indigo-500/10 text-indigo-600"
+    title: "Maintenance Alert", 
+    value: "18", 
+    icon: Wrench,
+    color: "text-amber-600",
+    bgColor: "bg-amber-50"
   },
   { 
-    title: "Total Sales", 
-    value: "1,240", 
-    change: "-4.1%", 
-    isPositive: false,
-    icon: ShoppingCart,
-    color: "bg-emerald-500/10 text-emerald-600"
-  },
-  { 
-    title: "Conversion Rate", 
-    value: "3.24%", 
-    change: "+2.4%", 
-    isPositive: true,
-    icon: TrendingUp,
-    color: "bg-purple-500/10 text-purple-600"
+    title: "Pending Cargo", 
+    value: "20", 
+    icon: Package,
+    color: "text-blue-600",
+    bgColor: "bg-blue-50"
   }
 ];
 
-const salesData = [
-  { name: 'Jan', sales: 4000, revenue: 2400 },
-  { name: 'Feb', sales: 3000, revenue: 1398 },
-  { name: 'Mar', sales: 2000, revenue: 9800 },
-  { name: 'Apr', sales: 2780, revenue: 3908 },
-  { name: 'May', sales: 1890, revenue: 4800 },
-  { name: 'Jun', sales: 2390, revenue: 3800 },
-  { name: 'Jul', sales: 3490, revenue: 4300 },
-];
-
-const performanceData = [
-  { name: 'Direct', value: 400 },
-  { name: 'Organic', value: 300 },
-  { name: 'Referral', value: 200 },
-  { name: 'Paid', value: 278 },
+const recentTrips = [
+  { id: "T-8821", vehicle: "Scania R500", driver: "John Doe", status: "On Trip" },
+  { id: "T-8822", vehicle: "Volvo FH16", driver: "Sarah Miller", status: "Completed" },
+  { id: "T-8823", vehicle: "DAF XF", driver: "Mike Ross", status: "Dispatched" },
+  { id: "T-8824", vehicle: "MAN TGX", driver: "Emma Wilson", status: "On Trip" },
+  { id: "T-8825", vehicle: "Mercedes Actros", driver: "Chris Evans", status: "Draft" },
 ];
 
 export default function DashboardPage() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {metrics.map((metric, i) => (
-          <Card key={i} className="border-none shadow-sm hover:shadow-md transition-all">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className={`p-2 rounded-lg ${metric.color}`}>
-                  <metric.icon className="w-5 h-5" />
-                </div>
-                <Badge variant={metric.isPositive ? "default" : "destructive"} className={`rounded-full px-2 py-0 h-6 ${metric.isPositive ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100' : ''}`}>
-                  {metric.isPositive ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
-                  {metric.change}
-                </Badge>
+      {/* Top Action Bar */}
+      <div className="flex flex-col lg:flex-row items-center justify-between gap-6 bg-white p-4 rounded-2xl shadow-sm border">
+        <div className="flex flex-1 items-center gap-4 w-full lg:w-auto">
+          <div className="relative w-full lg:max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input 
+              placeholder="Search trips, vehicles..." 
+              className="pl-10 h-11 border-slate-200 bg-slate-50/50 rounded-xl w-full"
+            />
+          </div>
+          <Button variant="outline" className="h-11 rounded-xl border-slate-200 px-4">
+            <Filter className="w-4 h-4 mr-2" /> Filter
+          </Button>
+          <Button variant="outline" className="h-11 rounded-xl border-slate-200 px-4">
+            Sort by <ArrowUpDown className="w-4 h-4 ml-2" />
+          </Button>
+        </div>
+        <div className="flex items-center gap-3 w-full lg:w-auto">
+          <Button className="flex-1 lg:flex-none h-11 bg-primary hover:bg-primary/90 rounded-xl px-6">
+            <Plus className="w-4 h-4 mr-2" /> New Trip
+          </Button>
+          <Button variant="outline" className="flex-1 lg:flex-none h-11 border-primary text-primary hover:bg-primary/5 rounded-xl px-6">
+            <Plus className="w-4 h-4 mr-2" /> New Vehicle
+          </Button>
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {kpis.map((kpi, i) => (
+          <Card key={i} className="border-none shadow-sm hover:shadow-md transition-all overflow-hidden bg-white">
+            <CardContent className="p-8 flex flex-col items-center text-center space-y-4">
+              <div className={`p-4 rounded-2xl ${kpi.bgColor} ${kpi.color}`}>
+                <kpi.icon className="w-8 h-8" />
               </div>
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-slate-500 uppercase tracking-wider">{metric.title}</p>
-                <p className="text-3xl font-bold text-slate-900">{metric.value}</p>
+              <div>
+                <p className={`text-3xl font-bold font-headline ${kpi.color}`}>{kpi.value}</p>
+                <p className="text-sm font-semibold text-slate-500 mt-1 uppercase tracking-wider">{kpi.title}</p>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-2 border-none shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="font-headline">Revenue Performance</CardTitle>
-              <CardDescription>Monthly growth and sales volume analysis</CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                <span className="w-3 h-3 rounded-full bg-primary"></span>
-                Sales
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                <span className="w-3 h-3 rounded-full bg-accent"></span>
-                Revenue
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="h-[400px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={salesData}>
-                <defs>
-                  <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                <Tooltip 
-                  contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}}
-                />
-                <Area type="monotone" dataKey="sales" stroke="hsl(var(--primary))" strokeWidth={3} fillOpacity={1} fill="url(#colorSales)" />
-                <Area type="monotone" dataKey="revenue" stroke="hsl(var(--accent))" strokeWidth={3} fill="transparent" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-sm">
-          <CardHeader>
-            <CardTitle className="font-headline">Traffic Sources</CardTitle>
-            <CardDescription>User acquisition breakdown</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[400px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={performanceData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
-                <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card className="border-none shadow-sm overflow-hidden">
-          <CardHeader>
-            <CardTitle className="font-headline">Recent Sales</CardTitle>
-            <CardDescription>You made 265 sales this month.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {[
-                { name: "Olivia Martin", email: "olivia.martin@email.com", amount: "+$1,999.00", initials: "OM" },
-                { name: "Jackson Lee", email: "jackson.lee@email.com", amount: "+$39.00", initials: "JL" },
-                { name: "Isabella Nguyen", email: "isabella.nguyen@email.com", amount: "+$299.00", initials: "IN" },
-                { name: "William Kim", email: "will@email.com", amount: "+$99.00", initials: "WK" },
-                { name: "Sofia Davis", email: "sofia.davis@email.com", amount: "+$39.00", initials: "SD" },
-              ].map((sale, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-700">{sale.initials}</div>
-                    <div>
-                      <p className="text-sm font-bold text-slate-900 leading-none">{sale.name}</p>
-                      <p className="text-xs text-slate-500 mt-1">{sale.email}</p>
-                    </div>
-                  </div>
-                  <p className="text-sm font-bold text-slate-900">{sale.amount}</p>
-                </div>
+      {/* Main Data Table */}
+      <Card className="border-none shadow-sm overflow-hidden bg-white">
+        <CardHeader className="px-6 py-4 border-b flex flex-row items-center justify-between">
+          <CardTitle className="text-lg font-bold font-headline">Ongoing Operations</CardTitle>
+          <Button variant="ghost" size="sm" className="text-primary font-bold">View All</Button>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader className="bg-slate-50/50">
+              <TableRow className="border-none">
+                <TableHead className="w-[150px] h-14 pl-8 text-xs font-bold uppercase text-slate-500">Trip ID</TableHead>
+                <TableHead className="h-14 text-xs font-bold uppercase text-slate-500">Vehicle</TableHead>
+                <TableHead className="h-14 text-xs font-bold uppercase text-slate-500">Driver</TableHead>
+                <TableHead className="h-14 text-xs font-bold uppercase text-slate-500 text-center">Status</TableHead>
+                <TableHead className="h-14 pr-8 text-right text-xs font-bold uppercase text-slate-500">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {recentTrips.map((trip) => (
+                <TableRow key={trip.id} className="h-20 border-slate-100 hover:bg-slate-50/50 transition-colors">
+                  <TableCell className="pl-8 font-bold text-slate-900">{trip.id}</TableCell>
+                  <TableCell className="font-medium text-slate-700">{trip.vehicle}</TableCell>
+                  <TableCell className="font-medium text-slate-700">{trip.driver}</TableCell>
+                  <TableCell className="text-center">
+                    <Badge className={`rounded-full px-4 py-1 font-bold border-none ${
+                      trip.status === 'On Trip' ? 'bg-emerald-100 text-emerald-700' : 
+                      trip.status === 'Completed' ? 'bg-blue-100 text-blue-700' : 
+                      trip.status === 'Dispatched' ? 'bg-indigo-100 text-indigo-700' :
+                      'bg-slate-100 text-slate-600'
+                    }`}>
+                      {trip.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="pr-8 text-right">
+                    <Button variant="ghost" size="icon" className="hover:bg-slate-100 rounded-full">
+                      <MoreHorizontal className="w-5 h-5 text-slate-400" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
               ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-sm bg-primary text-white">
-          <CardHeader>
-            <CardTitle className="font-headline text-white flex items-center gap-2">
-              <BrainCircuit className="w-5 h-5 text-accent" />
-              Quick AI Insights
-            </CardTitle>
-            <CardDescription className="text-white/70">Powered by automated data agent</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-4 bg-white/10 rounded-xl border border-white/10 backdrop-blur-sm">
-              <h4 className="font-bold mb-1">Growth Anomaly Detected</h4>
-              <p className="text-sm text-white/80">Revenue spiked by 24% in the last 48 hours. Most sales came from the 'Direct' channel in the US region.</p>
-            </div>
-            <div className="p-4 bg-white/10 rounded-xl border border-white/10 backdrop-blur-sm">
-              <h4 className="font-bold mb-1">Opportunity Alert</h4>
-              <p className="text-sm text-white/80">Customer retention for 'Direct' users is 15% higher than average. Consider shifting 10% of paid ad budget to referral incentives.</p>
-            </div>
-            <button className="w-full py-3 px-4 bg-accent text-primary rounded-xl font-bold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 mt-4">
-              Explore All AI Insights <ArrowRight className="w-4 h-4" />
-            </button>
-          </CardContent>
-        </Card>
-      </div>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }

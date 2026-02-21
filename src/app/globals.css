@@ -5,34 +5,38 @@
 
 @layer base {
   :root {
-    --background: 216 12% 95%; /* #F0F2F5 */
-    --foreground: 222.2 84% 4.9%;
+    --background: 210 40% 98%; /* #F8FAFC */
+    --foreground: 222 47% 11%; /* #0F172A */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 231 48% 48%; /* #3F51B5 - Deep Indigo */
+    --popover-foreground: 222 47% 11%;
+    --primary: 221 83% 40%; /* #1E40AF - Deep Logistics Blue */
     --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 182 100% 74%; /* #7DF9FF - Electric Blue */
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 182 100% 74%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 72% 51%; /* #DC2626 - Compliance Red */
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 231 48% 48%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 40%;
     --radius: 0.75rem;
-    --sidebar-background: 231 48% 15%; /* Darker Indigo for Sidebar */
+    --sidebar-background: 222 47% 11%; /* Dark Slate for Sidebar */
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 231 48% 48%;
+    --sidebar-primary: 221 83% 40%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 182 100% 74%;
-    --sidebar-accent-foreground: 231 48% 15%;
-    --sidebar-border: 231 48% 25%;
-    --sidebar-ring: 231 48% 48%;
+    --sidebar-accent: 221 83% 30%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 222 47% 20%;
+    --sidebar-ring: 221 83% 40%;
+    
+    /* Custom Status Colors */
+    --success: 142 76% 36%; /* #16A34A */
+    --warning: 38 92% 50%; /* #F59E0B */
   }
 }
 
