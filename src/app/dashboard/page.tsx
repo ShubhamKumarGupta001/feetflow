@@ -16,13 +16,28 @@ export default function DashboardPage() {
   const { user } = useUser();
   const db = useFirestore();
   
-  // Role Detection
+  // 1. Get User Identity & Meta
   const userRef = useMemoFirebase(() => user ? doc(db, 'users', user.uid) : null, [db, user]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
 
-  // Permission Logic
-  const canSeeTrips = userProfile?.roleId === 'fleet-manager' || userProfile?.roleId === 'dispatcher';
-  const canSeeVehicles = userProfile?.roleId === 'fleet-manager' || userProfile?.roleId === 'dispatcher' || userProfile?.roleId === 'safety-officer';
+  // 2. Authorization Gating: Verify role flag existence to satisfy Security Rules (exists() check)
+  const roleCollection = useMemo(() => {
+    if (!userProfile?.roleId) return 'roles_fleetManagers';
+    const rid = userProfile.roleId;
+    if (rid === 'dispatcher') return 'roles_dispatchers';
+    if (rid === 'safety-officer') return 'roles_safetyOfficers';
+    if (rid === 'financial-analyst') return 'roles_financialAnalysts';
+    return 'roles_fleetManagers';
+  }, [userProfile]);
+
+  const roleFlagRef = useMemoFirebase(() => (user && userProfile) ? doc(db, roleCollection, user.uid) : null, [db, user, userProfile, roleCollection]);
+  const { data: roleFlag, isLoading: isRoleFlagLoading } = useDoc(roleFlagRef);
+
+  const isAuthorized = !!roleFlag;
+
+  // 3. Permission-Gated References
+  const canSeeTrips = isAuthorized && (userProfile?.roleId === 'fleet-manager' || userProfile?.roleId === 'dispatcher');
+  const canSeeVehicles = isAuthorized && (userProfile?.roleId === 'fleet-manager' || userProfile?.roleId === 'dispatcher' || userProfile?.roleId === 'safety-officer');
 
   const vRef = useMemoFirebase(() => canSeeVehicles ? collection(db, 'vehicles') : null, [db, canSeeVehicles]);
   const tRef = useMemoFirebase(() => canSeeTrips ? collection(db, 'trips') : null, [db, canSeeTrips]);
@@ -42,9 +57,9 @@ export default function DashboardPage() {
     ];
   }, [vehicles, trips]);
 
-  const isLoading = isProfileLoading || vLoading || tLoading;
+  const isLoading = isProfileLoading || isRoleFlagLoading || (isAuthorized && (vLoading || tLoading));
 
-  if (isProfileLoading) {
+  if (isProfileLoading || isRoleFlagLoading) {
     return (
       <div className="flex h-64 w-full items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -55,7 +70,7 @@ export default function DashboardPage() {
   const roleName = userProfile?.roleId?.replace('-', ' ').toUpperCase() || 'AUTHORIZED USER';
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-10 animate-in fade-in duration-700">
       {/* Welcome Banner */}
       <div className="relative p-10 rounded-3xl bg-slate-900 text-white overflow-hidden shadow-2xl">
         <div className="absolute top-0 right-0 p-8 opacity-10">
@@ -103,7 +118,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <p className="text-4xl font-black font-headline text-slate-900">
-                  {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : kpi.value}
+                  {vLoading || tLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : kpi.value}
                 </p>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{kpi.title}</p>
               </div>

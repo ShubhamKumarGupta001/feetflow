@@ -49,6 +49,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
   // 2. Self-Healing Role Provisioning: Ensures existing users have the required role flag doc
+  // This is critical for security rules that use exists() on role collections.
   useEffect(() => {
     if (user && userProfile && !isProfileLoading) {
       const roleId = userProfile.roleId || 'fleet-manager';
@@ -58,7 +59,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         roleId === 'financial-analyst' ? 'roles_financialAnalysts' :
         'roles_fleetManagers';
 
-      // Non-blocking provisioning to ensure rules are satisfied
+      // Ensure the role flag exists in Firestore to satisfy the exists() check in rules
       setDocumentNonBlocking(doc(db, roleCollection, user.uid), {
         id: user.uid,
         name: roleId.replace('-', ' ').toUpperCase(),
@@ -105,6 +106,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         const vehicles = [
           { id: 'V-001', name: 'Scania Heavy R500', model: 'R500', licensePlate: 'ABC-123', maxCapacityKg: 15000, odometerKm: 45000, acquisitionCost: 1200000, status: 'Available', type: 'Truck', region: 'Central' },
           { id: 'V-002', name: 'Ford Transit', model: 'Transit', licensePlate: 'XYZ-789', maxCapacityKg: 2000, odometerKm: 12000, acquisitionCost: 450000, status: 'On Trip', type: 'Van', region: 'North' },
+          { id: 'V-003', name: 'Volvo FH16', model: 'FH16', licensePlate: 'GHI-456', maxCapacityKg: 25000, odometerKm: 85000, acquisitionCost: 1800000, status: 'Available', type: 'Truck', region: 'South' },
         ];
         vehicles.forEach(v => batch.set(doc(vehiclesRef, v.id), v));
 
@@ -113,6 +115,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         const drivers = [
           { id: 'D-001', name: 'Robert Miller', licenseCategory: 'Class A', licenseExpiryDate: '2026-12-30', status: 'On Duty', safetyScore: 94, totalTrips: 120, completedTrips: 118, completionRate: 98 },
           { id: 'D-002', name: 'Sarah Connor', licenseCategory: 'Class B', licenseExpiryDate: '2023-01-01', status: 'Suspended', safetyScore: 82, totalTrips: 45, completedTrips: 40, completionRate: 88 },
+          { id: 'D-003', name: 'James Logan', licenseCategory: 'Class A', licenseExpiryDate: '2025-06-15', status: 'On Duty', safetyScore: 91, totalTrips: 88, completedTrips: 85, completionRate: 96 },
         ];
         drivers.forEach(d => batch.set(doc(driversRef, d.id), d));
 

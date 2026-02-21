@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { 
   useCollection, 
   useFirestore, 
@@ -53,24 +53,34 @@ export default function VehiclesPage() {
     name: ''
   });
 
-  // Verify role existence before starting the vehicle collection listener
-  // to prevent permission errors if provisioning is still in progress.
-  const roleRef = useMemoFirebase(() => {
-    if (!user) return null;
-    return doc(firestore, 'roles_fleetManagers', user.uid);
-  }, [firestore, user]);
+  // 1. Get User Profile to find the roleId
+  const userRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
 
-  const { data: roleDoc, isLoading: isRoleLoading } = useDoc(roleRef);
+  // 2. Authorization Gating: Verify role flag existence to satisfy Security Rules (exists() check)
+  const roleCollection = useMemo(() => {
+    if (!userProfile?.roleId) return 'roles_fleetManagers';
+    const rid = userProfile.roleId;
+    if (rid === 'dispatcher') return 'roles_dispatchers';
+    if (rid === 'safety-officer') return 'roles_safetyOfficers';
+    if (rid === 'financial-analyst') return 'roles_financialAnalysts';
+    return 'roles_fleetManagers';
+  }, [userProfile]);
 
-  // Fetch Vehicles - Only if user has a verified role
+  const roleFlagRef = useMemoFirebase(() => (user && userProfile) ? doc(firestore, roleCollection, user.uid) : null, [firestore, user, userProfile, roleCollection]);
+  const { data: roleFlag, isLoading: isRoleFlagLoading } = useDoc(roleFlagRef);
+
+  const isAuthorized = !!roleFlag;
+
+  // 3. Fetch Vehicles - Only if user has a verified role and we have a valid flag
   const vehiclesRef = useMemoFirebase(() => {
-    if (!user || !roleDoc) return null;
+    if (!user || !isAuthorized) return null;
     return collection(firestore, 'vehicles');
-  }, [firestore, user, roleDoc]);
+  }, [firestore, user, isAuthorized]);
   
   const { data: vehicles, isLoading: isCollectionLoading } = useCollection(vehiclesRef);
 
-  const isLoading = isRoleLoading || isCollectionLoading;
+  const isLoading = isProfileLoading || isRoleFlagLoading || (isAuthorized && isCollectionLoading);
 
   const filteredVehicles = vehicles?.filter(v => 
     v.licensePlate?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -118,84 +128,86 @@ export default function VehiclesPage() {
           <p className="text-slate-500">Asset Management & Tracking</p>
         </div>
         
-        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogTrigger asChild>
-            <Button className="rounded-xl bg-primary shadow-lg shadow-primary/20 h-11 px-6">
-              <Plus className="w-5 h-5 mr-2" /> New Vehicle
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px] rounded-2xl">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-bold font-headline">New Vehicle Registration</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-6 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="plate">License Plate:</Label>
-                <Input 
-                  id="plate" 
-                  value={formData.licensePlate}
-                  onChange={(e) => setFormData({...formData, licensePlate: e.target.value})}
-                  className="rounded-xl" 
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="payload">Max Payload (kg):</Label>
-                <Input 
-                  id="payload" 
-                  type="number"
-                  value={formData.maxCapacityKg}
-                  onChange={(e) => setFormData({...formData, maxCapacityKg: e.target.value})}
-                  className="rounded-xl" 
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="odometer">Initial Odometer (km):</Label>
-                <Input 
-                  id="odometer" 
-                  type="number"
-                  value={formData.odometerKm}
-                  onChange={(e) => setFormData({...formData, odometerKm: e.target.value})}
-                  className="rounded-xl" 
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="type">Type:</Label>
-                <Input 
-                  id="type" 
-                  placeholder="e.g. Mini, Truck, Van"
-                  value={formData.type}
-                  onChange={(e) => setFormData({...formData, type: e.target.value})}
-                  className="rounded-xl" 
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="model">Model:</Label>
-                <Input 
-                  id="model" 
-                  placeholder="e.g. Scania 2017"
-                  value={formData.model}
-                  onChange={(e) => setFormData({...formData, model: e.target.value})}
-                  className="rounded-xl" 
-                />
-              </div>
-            </div>
-            <DialogFooter className="flex gap-3 sm:justify-center">
-              <Button 
-                onClick={handleSave} 
-                className="flex-1 bg-primary hover:bg-primary/90 rounded-xl h-11"
-              >
-                Save
+        {userProfile?.roleId === 'fleet-manager' && (
+          <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+            <DialogTrigger asChild>
+              <Button className="rounded-xl bg-primary shadow-lg shadow-primary/20 h-11 px-6">
+                <Plus className="w-5 h-5 mr-2" /> New Vehicle
               </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => setIsModalOpen(false)}
-                className="flex-1 rounded-xl h-11 border-destructive text-destructive hover:bg-destructive/5"
-              >
-                Cancel
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px] rounded-2xl">
+              <DialogHeader>
+                <DialogTitle className="text-2xl font-bold font-headline">New Vehicle Registration</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-6 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="plate">License Plate:</Label>
+                  <Input 
+                    id="plate" 
+                    value={formData.licensePlate}
+                    onChange={(e) => setFormData({...formData, licensePlate: e.target.value})}
+                    className="rounded-xl" 
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="payload">Max Payload (kg):</Label>
+                  <Input 
+                    id="payload" 
+                    type="number"
+                    value={formData.maxCapacityKg}
+                    onChange={(e) => setFormData({...formData, maxCapacityKg: e.target.value})}
+                    className="rounded-xl" 
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="odometer">Initial Odometer (km):</Label>
+                  <Input 
+                    id="odometer" 
+                    type="number"
+                    value={formData.odometerKm}
+                    onChange={(e) => setFormData({...formData, odometerKm: e.target.value})}
+                    className="rounded-xl" 
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="type">Type:</Label>
+                  <Input 
+                    id="type" 
+                    placeholder="e.g. Mini, Truck, Van"
+                    value={formData.type}
+                    onChange={(e) => setFormData({...formData, type: e.target.value})}
+                    className="rounded-xl" 
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="model">Model:</Label>
+                  <Input 
+                    id="model" 
+                    placeholder="e.g. Scania 2017"
+                    value={formData.model}
+                    onChange={(e) => setFormData({...formData, model: e.target.value})}
+                    className="rounded-xl" 
+                  />
+                </div>
+              </div>
+              <DialogFooter className="flex gap-3 sm:justify-center">
+                <Button 
+                  onClick={handleSave} 
+                  className="flex-1 bg-primary hover:bg-primary/90 rounded-xl h-11"
+                >
+                  Save
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsModalOpen(false)}
+                  className="flex-1 rounded-xl h-11 border-destructive text-destructive hover:bg-destructive/5"
+                >
+                  Cancel
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <Card className="border-none shadow-sm overflow-hidden bg-white">
@@ -257,14 +269,16 @@ export default function VehiclesPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="pr-8 text-right">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={() => handleDelete(vehicle.id)}
-                        className="hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-full h-8 w-8"
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
+                      {userProfile?.roleId === 'fleet-manager' && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => handleDelete(vehicle.id)}
+                          className="hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-full h-8 w-8"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
