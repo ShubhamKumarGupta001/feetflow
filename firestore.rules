@@ -19,8 +19,8 @@
  * - Path-Based User Security: Users can only manage their own /users/{userId} document.
  * - Ownership vs. Role: Operational data (Trips, Vehicles) is considered an organizational 
  *   asset. Access is determined by role (e.g., Dispatcher) rather than individual document ownership.
- * - Denormalization: Role checks are optimized by using document existence in specific collections
- *   to avoid complex queries during rule evaluation.
+ * - Prototype Self-Provisioning: For this prototype, users are allowed to create their own role 
+ *   documents during registration to enable immediate access.
  */
 
 rules_version = '2';
@@ -60,43 +60,33 @@ service cloud.firestore {
     /**
      * @description User profiles containing identity and role metadata.
      * @path /users/{userId}
-     * @allow (get, update) if user is the owner of the profile.
-     * @deny (list) if user tries to see all users.
-     * @principle Path-based ownership and relational integrity for UIDs.
      */
     match /users/{userId} {
       allow get: if isOwner(userId);
       allow list: if false; 
       allow create: if isOwner(userId) && request.resource.data.id == userId;
       allow update: if isOwner(userId) && documentExists() && request.resource.data.id == resource.data.id;
-      allow delete: if false; // Users cannot delete their accounts in this prototype.
+      allow delete: if false;
     }
 
     /**
      * @description Flag collections for RBAC. Existence of UID grants the role.
      * @path /roles_{roleType}/{userId}
-     * @allow (get) if user is checking their own role status.
-     * @deny (write) users cannot elevate their own roles.
-     * @principle Authorization independence through existence checks.
      */
     match /{roleColl}/{userId} {
-      // Constraint to only match our defined role collections
       function isRoleCollection() {
         return roleColl in ['roles_fleetManagers', 'roles_dispatchers', 'roles_safetyOfficers', 'roles_financialAnalysts'];
       }
 
-      // Ensure the collection is a valid role collection before applying other rules
       allow get: if isRoleCollection() && (isOwner(userId) || isFleetManager());
       allow list: if isRoleCollection() && isFleetManager();
-      allow create, update, delete: if false; // Roles are managed via Admin SDK/Functions.
+      // PROTOTYPE ONLY: Allow users to create their own role flag upon registration
+      allow create: if isRoleCollection() && isOwner(userId);
+      allow update, delete: if false; 
     }
 
     /**
-     * @description Global list of system roles and their descriptions.
-     * @path /static_roles/{roleId}
-     * @allow (get, list) if the user is signed in.
-     * @deny (write) for everyone (read-only system data).
-     * @principle Public read-only access for authenticated users.
+     * @description Global list of system roles.
      */
     match /static_roles/{roleId} {
       allow get, list: if isSignedIn();
@@ -105,10 +95,6 @@ service cloud.firestore {
 
     /**
      * @description Central registry of vehicles.
-     * @path /vehicles/{vehicleId}
-     * @allow (get, list) if user has FM, Dispatcher, or Safety role.
-     * @allow (create, update, delete) if user is a Fleet Manager.
-     * @principle RBAC for asset management.
      */
     match /vehicles/{vehicleId} {
       allow get, list: if isFleetManager() || isDispatcher() || isSafetyOfficer();
@@ -119,10 +105,6 @@ service cloud.firestore {
 
     /**
      * @description Driver personnel records.
-     * @path /drivers/{driverId}
-     * @allow (get, list) if user is FM, Dispatcher, or Safety Officer.
-     * @allow (write) if user is FM or Safety Officer (manages compliance).
-     * @principle Distributed authority based on functional roles.
      */
     match /drivers/{driverId} {
       allow get, list: if isFleetManager() || isDispatcher() || isSafetyOfficer();
@@ -133,10 +115,6 @@ service cloud.firestore {
 
     /**
      * @description Operational trip records and dispatch history.
-     * @path /trips/{tripId}
-     * @allow (get, list, create, update) if user is Fleet Manager or Dispatcher.
-     * @deny (delete) only Fleet Managers can remove historical logs.
-     * @principle Operational workflow restriction to logistics roles.
      */
     match /trips/{tripId} {
       allow get, list: if isFleetManager() || isDispatcher();
@@ -146,11 +124,7 @@ service cloud.firestore {
     }
 
     /**
-     * @description Logs of vehicle maintenance and repairs.
-     * @path /maintenance_logs/{logId}
-     * @allow (all) if user is a Fleet Manager.
-     * @deny (read/write) for non-managers.
-     * @principle Manager-only access for sensitive asset health data.
+     * @description Logs of vehicle maintenance.
      */
     match /maintenance_logs/{logId} {
       allow get, list: if isFleetManager();
@@ -159,11 +133,7 @@ service cloud.firestore {
     }
 
     /**
-     * @description Tracking of fuel purchases and consumption.
-     * @path /fuel_logs/{logId}
-     * @allow (get, list) if user is FM or Financial Analyst.
-     * @allow (write) if user is FM.
-     * @principle Financial oversight access for analysts.
+     * @description Tracking of fuel purchases.
      */
     match /fuel_logs/{logId} {
       allow get, list: if isFleetManager() || isFinancialAnalyst();
@@ -173,10 +143,6 @@ service cloud.firestore {
 
     /**
      * @description General operational expenses.
-     * @path /expenses/{expenseId}
-     * @allow (get, list) if user is FM or Financial Analyst.
-     * @allow (write) if user is FM.
-     * @principle RBAC for financial data integrity.
      */
     match /expenses/{expenseId} {
       allow get, list: if isFleetManager() || isFinancialAnalyst();
