@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo, useState } from 'react';
@@ -14,7 +13,6 @@ import {
   Package, 
   Loader2, 
   Filter, 
-  SortAsc,
   MapPin
 } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
