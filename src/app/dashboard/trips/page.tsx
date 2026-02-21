@@ -29,7 +29,8 @@ import {
   Loader2,
   ClipboardList,
   Navigation,
-  AlertCircle
+  AlertCircle,
+  Weight
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
@@ -80,8 +81,18 @@ export default function TripsPage() {
     const vehicle = vehicles?.find(v => v.id === formData.vehicleId);
     const cargoWeight = Number(formData.cargoWeightKg) || 0;
     
+    // CRITICAL: Payload Validation Logic
+    if (cargoWeight <= 0) {
+      toast({ variant: "destructive", title: "Invalid Cargo", description: "Cargo weight must be a positive number." });
+      return;
+    }
+
     if (cargoWeight > (vehicle?.maxCapacityKg || 0)) {
-      toast({ variant: "destructive", title: "Overload Detected", description: "Cargo exceeds vehicle payload capacity." });
+      toast({ 
+        variant: "destructive", 
+        title: "Payload Overload", 
+        description: `Deployment aborted. The cargo (${cargoWeight}kg) exceeds the ${vehicle?.name}'s maximum capacity of ${vehicle?.maxCapacityKg}kg.` 
+      });
       return;
     }
 
@@ -90,7 +101,7 @@ export default function TripsPage() {
     const tripDocRef = doc(firestore, 'trips', tripId);
 
     try {
-      // 1. Create the Trip Record with explicit ID mapping
+      // 1. Create the Trip Record
       setDocumentNonBlocking(tripDocRef, {
         id: tripId,
         vehicleId: formData.vehicleId,
@@ -223,7 +234,9 @@ export default function TripsPage() {
                   <SelectContent>
                     {availableVehicles.length > 0 ? (
                       availableVehicles.map(v => (
-                        <SelectItem key={v.id} value={v.id}>{v.licensePlate} - {v.model}</SelectItem>
+                        <SelectItem key={v.id} value={v.id}>
+                          {v.licensePlate} ({v.model}) - Max: {v.maxCapacityKg}kg
+                        </SelectItem>
                       ))
                     ) : (
                       <div className="p-4 text-center text-xs text-slate-400">
@@ -236,8 +249,23 @@ export default function TripsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="font-bold text-slate-700">Cargo Weight (KG):</Label>
-                <Input type="number" value={formData.cargoWeightKg} onChange={(e) => setFormData({...formData, cargoWeightKg: e.target.value})} className="rounded-xl h-11" required />
+                <div className="flex items-center gap-2 mb-1">
+                  <Weight className="w-4 h-4 text-slate-400" />
+                  <Label className="font-bold text-slate-700">Cargo Weight (KG):</Label>
+                </div>
+                <Input 
+                  type="number" 
+                  value={formData.cargoWeightKg} 
+                  onChange={(e) => setFormData({...formData, cargoWeightKg: e.target.value})} 
+                  className="rounded-xl h-11" 
+                  placeholder="Enter intended payload"
+                  required 
+                />
+                {formData.vehicleId && (
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
+                    Selected Vehicle Limit: {vehicles?.find(v => v.id === formData.vehicleId)?.maxCapacityKg}kg
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
