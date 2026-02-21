@@ -44,7 +44,7 @@ export default function Home() {
       </header>
 
       <main className="flex-1">
-        {/* --- HERO SECTION: THE MULTI-ROLE OS --- */}
+        {/* --- HERO SECTION --- */}
         <section className="px-6 py-24 lg:py-32 lg:px-12 max-w-7xl mx-auto grid lg:grid-cols-2 gap-20 items-center">
           <div className="space-y-12 animate-in fade-in slide-in-from-left-4 duration-1000">
             <div className="space-y-4">
@@ -101,7 +101,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* --- CAPABILITIES SECTION --- */}
+        {/* --- CAPABILITIES SECTION (DARK THEME) --- */}
         <section id="capabilities" className="bg-slate-900 py-32 border-y border-slate-800">
           <div className="max-w-7xl mx-auto px-6">
             <div className="grid lg:grid-cols-3 gap-16">
@@ -132,7 +132,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* --- ROLE-BASED ACCESS (RBAC) OVERVIEW --- */}
+        {/* --- ROLE-BASED ACCESS (RBAC) SECTION --- */}
         <section id="roles" className="py-32 px-6">
           <div className="max-w-7xl mx-auto space-y-20">
             <div className="text-center space-y-4">
@@ -193,7 +193,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* --- THE CARGO PULSE VISUAL --- */}
+        {/* --- CARGO PULSE TRACKING SECTION (ACCENT THEME) --- */}
         <section className="bg-primary py-32 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-1/2 h-full bg-white/5 skew-x-[-20deg] translate-x-1/2"></div>
           <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-20 items-center">
@@ -261,6 +261,7 @@ export default function Home() {
         </section>
       </main>
 
+      {/* --- FOOTER --- */}
       <footer className="bg-slate-900 text-slate-400 py-24 px-6 lg:px-12 border-t border-slate-800">
         <div className="max-w-7xl mx-auto grid md:grid-cols-4 gap-16">
           <div className="col-span-2 space-y-8">
