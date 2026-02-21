@@ -175,7 +175,7 @@ export default function TripsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold font-headline text-slate-900 uppercase tracking-tighter">Trip Command Center</h2>
-          <p className="text-slate-500 font-medium">Precision Cargo Tracking & Real-Time Logistics Lifecycle</p>
+          <p className="text-slate-500 font-medium">Precision Cargo Tracking &amp; Real-Time Logistics Lifecycle</p>
         </div>
       </div>
 
@@ -243,31 +243,44 @@ export default function TripsPage() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="min-w-[360px]">
-                          <div className="relative flex items-center justify-between w-full pr-8">
-                            {/* Track Background */}
-                            <div className="absolute top-1/2 left-0 w-full h-[4px] bg-slate-100 -translate-y-1/2 z-0 rounded-full" />
+                        <TableCell className="min-w-[420px]">
+                          <div className="relative flex items-center justify-between w-full pr-12">
+                            {/* Track Background (Recessed Glass Pipe) */}
+                            <div className="absolute top-1/2 left-0 w-full h-[6px] bg-slate-100 -translate-y-1/2 z-0 rounded-full overflow-hidden">
+                              {/* Scanning Light Effect for Inactive Parts */}
+                              {!isCompleted && (
+                                <div className="absolute top-0 h-full w-40 bg-gradient-to-r from-transparent via-primary/5 to-transparent animate-[scan_4s_linear_infinite]" />
+                              )}
+                            </div>
                             
-                            {/* Flowing Progress Track Animation */}
+                            {/* Animated Progress Track (Active Data Flow) */}
                             <div 
                               className={cn(
-                                "absolute top-1/2 left-0 h-[4px] transition-all duration-1000 ease-in-out -translate-y-1/2 z-0 rounded-full",
-                                !isCompleted ? "bg-gradient-to-r from-primary/40 via-primary to-primary/40 bg-[length:200%_100%] animate-[flow_2s_linear_infinite]" : "bg-emerald-500"
+                                "absolute top-1/2 left-0 h-[6px] transition-all duration-1000 ease-in-out -translate-y-1/2 z-10 rounded-full",
+                                isCompleted ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]" : "bg-primary shadow-[0_0_15px_rgba(30,64,175,0.4)]"
                               )}
                               style={{ 
-                                width: `${(currentStageIndex / (TRACKING_STAGES.length - 1)) * 100}%`,
-                                boxShadow: !isCompleted ? '0 0 12px rgba(30,64,175,0.3)' : 'none'
+                                width: `${(currentStageIndex / (TRACKING_STAGES.length - 1)) * 100}%`
                               }}
-                            />
+                            >
+                              {/* Glowing Kinetic Comet Pulse */}
+                              {!isCompleted && currentStageIndex > 0 && (
+                                <div className="absolute top-1/2 right-0 -translate-y-1/2 w-20 h-[10px] bg-gradient-to-l from-white/60 to-transparent blur-[3px] rounded-full animate-pulse" />
+                              )}
+                            </div>
                             
                             <style jsx>{`
-                              @keyframes flow {
-                                0% { background-position: 200% 0; }
-                                100% { background-position: -200% 0; }
+                              @keyframes scan {
+                                0% { transform: translateX(-100%); }
+                                100% { transform: translateX(800%); }
+                              }
+                              @keyframes radar {
+                                0% { transform: scale(1); opacity: 0.8; }
+                                100% { transform: scale(1.6); opacity: 0; }
                               }
                               @keyframes breathe {
-                                0%, 100% { transform: scale(1); opacity: 1; }
-                                50% { transform: scale(1.05); opacity: 0.9; }
+                                0%, 100% { transform: scale(1); }
+                                50% { transform: scale(1.05); }
                               }
                             `}</style>
                             
@@ -277,24 +290,30 @@ export default function TripsPage() {
                               const isStageActive = idx === currentStageIndex;
                               
                               return (
-                                <div key={stage.id} className="relative z-10 flex flex-col items-center">
+                                <div key={stage.id} className="relative z-20 flex flex-col items-center">
+                                  {/* Radar Pulse for Active Hub */}
+                                  {isStageActive && !isCompleted && (
+                                    <div className="absolute inset-0 rounded-2xl bg-primary/30 animate-[radar_2s_ease-out_infinite]" />
+                                  )}
+                                  
                                   <div className={cn(
-                                    "w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-500 border-2 relative",
+                                    "w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-700 border-2 relative",
                                     isStageCompleted ? "bg-primary border-primary text-white shadow-lg" :
                                     isStageActive ? "bg-white border-primary text-primary shadow-xl ring-4 ring-primary/5 animate-[breathe_3s_ease-in-out_infinite]" :
                                     "bg-white border-slate-200 text-slate-300"
                                   )}>
-                                    <StageIcon className={cn("w-5 h-5 relative z-10")} />
+                                    <StageIcon className={cn("w-6 h-6 relative z-10")} />
                                   </div>
+                                  
                                   <div className="absolute -bottom-10 flex flex-col items-center">
                                     <span className={cn(
-                                      "whitespace-nowrap text-[9px] font-black uppercase tracking-tighter transition-colors",
-                                      isStageActive ? "text-primary" : isStageCompleted ? "text-slate-600" : "text-slate-300"
+                                      "whitespace-nowrap text-[9px] font-black uppercase tracking-tighter transition-all duration-500",
+                                      isStageActive ? "text-primary scale-110" : isStageCompleted ? "text-slate-600" : "text-slate-300"
                                     )}>
                                       {stage.label}
                                     </span>
                                     {isStageActive && !isCompleted && (
-                                      <span className="text-[8px] font-bold text-slate-400 mt-1 whitespace-nowrap flex items-center gap-1">
+                                      <span className="text-[8px] font-bold text-slate-400 mt-1 whitespace-nowrap flex items-center gap-1 opacity-0 animate-in fade-in slide-in-from-top-1 duration-1000 fill-mode-forwards">
                                         <Clock className="w-2.5 h-2.5" /> ETA: {new Date(new Date(trip.dispatchDate).getTime() + 48 * 60 * 60 * 1000).toLocaleDateString()}
                                       </span>
                                     )}
