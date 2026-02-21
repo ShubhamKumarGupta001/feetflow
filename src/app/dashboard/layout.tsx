@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useMemo } from 'react';
@@ -48,10 +47,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const userProfileRef = useMemoFirebase(() => user ? doc(db, 'users', user.uid) : null, [db, user]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
-  // 2. Self-Healing Role Provisioning: Ensures existing users have the required role flag doc
+  // 2. Self-Healing Role Provisioning
+  // This ensures the role flag exists in the dedicated collection, enabling server-side rule validation.
   useEffect(() => {
     if (user && userProfile && !isProfileLoading) {
-      // Default to 'dispatcher' if roleId is missing, following strict gating rules
       const roleId = userProfile.roleId || 'dispatcher';
       const roleCollection = 
         roleId === 'dispatcher' ? 'roles_dispatchers' :
@@ -59,16 +58,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         roleId === 'financial-analyst' ? 'roles_financialAnalysts' :
         'roles_fleetManagers';
 
-      // Ensure the role flag exists in Firestore to satisfy the exists() check in rules
       setDocumentNonBlocking(doc(db, roleCollection, user.uid), {
         id: user.uid,
         name: roleId.replace('-', ' ').toUpperCase(),
-        accessScope: `Standard access for ${roleId} role.`
+        accessScope: `Verified access for the ${roleId} role.`
       }, { merge: true });
     }
   }, [user, userProfile, isProfileLoading, db]);
 
-  // 3. Map roleId to a friendly display name
+  // 3. User Role Display Context
   const roleName = useMemo(() => {
     switch(userProfile?.roleId) {
       case 'fleet-manager': return 'Fleet Manager';
@@ -79,7 +77,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [userProfile]);
 
-  // 4. Filter Nav Items based on Role
+  // 4. Role-Based Navigation Filtering
   const filteredNavItems = useMemo(() => {
     if (!userProfile) return [];
     return navItems.filter(item => item.roles.includes(userProfile.roleId));
@@ -144,14 +142,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <SidebarProvider>
-      <div className="flex h-screen w-full bg-[#F8FAFC] overflow-hidden font-body">
+      <div className="flex h-screen w-full bg-[#F8FAFC] overflow-hidden font-body text-slate-900">
         <Sidebar className="border-r border-slate-200/50 bg-white">
           <SidebarHeader className="p-8">
             <Link href="/" className="flex items-center gap-3 group">
               <div className="w-10 h-10 bg-primary rounded-2xl flex items-center justify-center transition-all group-hover:rotate-6 shadow-xl shadow-primary/20">
                 <Truck className="w-6 h-6 text-white" />
               </div>
-              <span className="font-headline text-2xl font-bold tracking-tight text-slate-900">FleetFlow</span>
+              <span className="font-headline text-2xl font-bold tracking-tight text-slate-900 uppercase">FleetFlow</span>
             </Link>
           </SidebarHeader>
           
@@ -167,7 +165,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       className={`h-12 rounded-2xl px-4 transition-all duration-300 ${
                         pathname === item.href 
                           ? 'bg-primary text-white shadow-lg shadow-primary/20 translate-x-1' 
-                          : 'text-slate-500 hover:bg-slate-100'
+                          : 'text-slate-500 hover:bg-slate-100 hover:text-primary'
                       }`}
                     >
                       <Link href={item.href} className="flex items-center gap-4">
@@ -218,7 +216,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <main className="flex-1 flex flex-col overflow-auto">
           <header className="h-20 px-10 flex items-center justify-between bg-white/80 backdrop-blur-md border-b sticky top-0 z-40">
             <div className="flex items-center gap-4">
-              <h2 className="text-xl font-bold text-slate-900 font-headline">
+              <h2 className="text-xl font-bold text-slate-900 font-headline uppercase tracking-tighter">
                 {navItems.find(item => item.href === pathname)?.label || 'Dashboard'}
               </h2>
             </div>
@@ -237,7 +235,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     {roleName}
                   </p>
                 </div>
-                <Avatar className="h-11 w-11 border-2 border-primary/10 shadow-lg">
+                <Avatar className="h-11 w-11 border-2 border-primary/10 shadow-lg hover:scale-105 transition-transform">
                   <AvatarImage src={`https://picsum.photos/seed/${user.uid}/100/100`} />
                   <AvatarFallback className="bg-primary/5 text-primary font-bold">{user.email?.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>

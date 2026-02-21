@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -8,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Truck, Loader2, ShieldCheck, AlertCircle, KeyRound } from 'lucide-react';
+import { Truck, Loader2, KeyRound, AlertCircle, Info } from 'lucide-react';
 import { useAuth, useFirestore, setDocumentNonBlocking } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc } from 'firebase/firestore';
@@ -36,25 +35,24 @@ export default function RegisterPage() {
 
   /**
    * Secure Role Determination Logic
-   * 1. Check for the hardcoded System Admin Key first.
-   * 2. If no key, look for specialist keywords (Safety, Finance).
-   * 3. Keywords like 'admin' or 'manager' in email NO LONGER grant fleet-manager role.
-   * 4. Default everyone else to 'dispatcher'.
+   * - Fleet Manager: Strictly requires the ADMIN_SECRET_KEY. Keywords in email NO LONGER grant this role.
+   * - Specialist Roles: Automatic sorting via keywords (safety, finance, etc.)
+   * - Default: Dispatcher
    */
   const determineRole = (email: string, key: string) => {
     const lowEmail = email.toLowerCase();
     
-    // Administrative Access is ONLY granted via the secret System Key
+    // 1. Strict Authorization Check for Fleet Manager
     if (key.trim() === ADMIN_SECRET_KEY) {
       return 'fleet-manager';
     }
     
-    // Specialist Logistics keywords for standard roles
+    // 2. Automatic Sorting for standard specialist roles (NO keyword grants Fleet Manager anymore)
     if (lowEmail.includes('safety') || lowEmail.includes('compliance')) return 'safety-officer';
     if (lowEmail.includes('finance') || lowEmail.includes('audit') || lowEmail.includes('account')) return 'financial-analyst';
     if (lowEmail.includes('dispatch')) return 'dispatcher';
     
-    // Base Access: All other users are Dispatchers (Limited Access)
+    // 3. Default Secure Entry Point
     return 'dispatcher'; 
   };
 
@@ -71,25 +69,27 @@ export default function RegisterPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
+      // Provision User Profile
       setDocumentNonBlocking(doc(db, 'users', user.uid), {
         id: user.uid,
         email: user.email,
         roleId: roleId
       }, { merge: true });
 
+      // Provision Role Flag (This enables Security Rule access)
       setDocumentNonBlocking(doc(db, roleConfig.collection, user.uid), {
         id: user.uid,
         name: roleConfig.label,
-        accessScope: `System-generated access for the ${roleConfig.label} role.`
+        accessScope: `Verified ${roleConfig.label} access.`
       }, { merge: true });
 
       router.push('/dashboard');
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') {
         setIsEmailInUse(true);
-        setError('This email is already registered. Please sign in instead.');
+        setError('Email already exists. Please login.');
       } else {
-        setError(err.message || 'Failed to create account. Please try again.');
+        setError(err.message || 'Registration failed.');
       }
       setLoading(false);
     }
@@ -101,20 +101,27 @@ export default function RegisterPage() {
         <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center group-hover:rotate-12 transition-transform text-white shadow-lg shadow-primary/20">
           <Truck className="w-6 h-6" />
         </div>
-        <span className="font-headline text-2xl font-bold text-primary tracking-tight">Fleet Flow</span>
+        <span className="font-headline text-2xl font-bold text-primary tracking-tight">FleetFlow</span>
       </Link>
 
       <Card className="w-full max-w-md border-none shadow-xl bg-white rounded-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <CardHeader className="space-y-2 pb-8 pt-8 text-center">
-          <CardTitle className="text-2xl font-bold font-headline text-slate-900">Secure Provisioning</CardTitle>
-          <CardDescription className="text-slate-500">
-            Automated workspace setup for verified logistics personnel.
+        <CardHeader className="space-y-2 pb-8 pt-8 text-center border-b border-slate-50 bg-slate-50/30">
+          <CardTitle className="text-2xl font-bold font-headline text-slate-900 uppercase tracking-tighter">Identity Setup</CardTitle>
+          <CardDescription className="text-slate-500 font-medium">
+            Automated workspace provisioning for verified logistics staff.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-8">
+          <div className="mb-8 p-4 bg-primary/5 border border-primary/10 rounded-xl flex gap-3 items-start">
+            <Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+            <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
+              <strong>Fleet Manager</strong> access is restricted. Use the System Authorization Key for administrative privileges. All other users default to <strong>Dispatcher</strong>.
+            </p>
+          </div>
+
           <form onSubmit={handleRegister} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="email">Professional Email</Label>
+              <Label htmlFor="email" className="font-bold text-slate-700">Work Email</Label>
               <Input 
                 id="email" 
                 type="email" 
@@ -122,7 +129,7 @@ export default function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="h-12 rounded-xl bg-slate-50/50 border-slate-200 focus:bg-white transition-all shadow-sm"
+                className="h-12 rounded-xl bg-white border-slate-200 focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
               />
             </div>
             <div className="space-y-2">
@@ -134,25 +141,22 @@ export default function RegisterPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="h-12 rounded-xl bg-slate-50/50 border-slate-200 focus:bg-white transition-all shadow-sm"
+                className="h-12 rounded-xl bg-white border-slate-200 focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
               />
             </div>
 
-            <div className="pt-4 border-t border-slate-100">
+            <div className="pt-4 mt-2 border-t border-slate-100">
               <div className="flex items-center gap-2 mb-3">
                 <KeyRound className="w-4 h-4 text-primary" />
-                <Label htmlFor="authKey" className="font-bold text-slate-700">System Authorization Key</Label>
+                <Label htmlFor="authKey" className="font-bold text-slate-700 uppercase text-[10px] tracking-widest">Admin Authorization Key</Label>
               </div>
               <Input 
                 id="authKey" 
-                placeholder="Required for Administrative Access"
+                placeholder="Enter key for Manager Access"
                 value={authKey}
                 onChange={(e) => setAuthKey(e.target.value)}
-                className="h-12 rounded-xl bg-slate-900 text-white placeholder:text-slate-500 border-none focus:ring-2 focus:ring-primary/50 transition-all font-mono"
+                className="h-12 rounded-xl bg-slate-900 text-white placeholder:text-slate-600 border-none focus:ring-2 focus:ring-primary/50 transition-all font-mono"
               />
-              <p className="mt-2 text-[10px] text-slate-400 font-medium">
-                Admin role is locked. Leave blank to register as a <span className="text-slate-600 font-bold">Dispatcher</span>.
-              </p>
             </div>
 
             {error && (
@@ -179,7 +183,7 @@ export default function RegisterPage() {
           </form>
         </CardContent>
         <CardFooter className="flex flex-col border-t bg-slate-50/50 p-6 space-y-4">
-          <p className="text-sm text-slate-500 text-center">
+          <p className="text-sm text-slate-500 text-center font-medium">
             Already have an active session?{" "}
             <Link href="/auth/login" className="text-primary font-bold hover:underline">
               Sign In
