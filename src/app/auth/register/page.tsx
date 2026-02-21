@@ -9,9 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Truck, Loader2, ShieldCheck } from 'lucide-react';
-import { useAuth, useFirestore } from '@/firebase';
+import { useAuth, useFirestore, setDocumentNonBlocking } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -28,27 +28,28 @@ export default function RegisterPage() {
     setError('');
     
     try {
+      // 1. Authenticate with Firebase Auth (Blocking)
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
-      // 1. Create User Document
-      await setDoc(doc(db, 'users', user.uid), {
+      // 2. Initialize User Profile (Non-blocking)
+      setDocumentNonBlocking(doc(db, 'users', user.uid), {
         id: user.uid,
         email: user.email,
         roleId: 'fleet-manager'
-      });
+      }, { merge: true });
 
-      // 2. Provision Fleet Manager Role for full access in prototype
-      await setDoc(doc(db, 'roles_fleetManagers', user.uid), {
+      // 3. Provision Prototype Role (Non-blocking)
+      setDocumentNonBlocking(doc(db, 'roles_fleetManagers', user.uid), {
         id: user.uid,
         name: 'Fleet Manager',
         accessScope: 'Full administrative access to all logistics modules.'
-      });
+      }, { merge: true });
 
+      // 4. Redirect immediately
       router.push('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Failed to create account. Please try again.');
-    } finally {
       setLoading(false);
     }
   };
@@ -59,7 +60,7 @@ export default function RegisterPage() {
         <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center group-hover:rotate-12 transition-transform text-white shadow-lg shadow-primary/20">
           <Truck className="w-6 h-6" />
         </div>
-        <span className="font-headline text-2xl font-bold text-primary tracking-tight">Fleet Flow</span>
+        <span className="font-headline text-2xl font-bold text-primary tracking-tight text-primary">Fleet Flow</span>
       </Link>
 
       <Card className="w-full max-w-md border-none shadow-xl bg-white rounded-2xl overflow-hidden">

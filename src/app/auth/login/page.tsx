@@ -30,7 +30,6 @@ export default function LoginPage() {
       router.push('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Failed to sign in. Please check your credentials.');
-    } finally {
       setLoading(false);
     }
   };
@@ -55,14 +54,14 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="email">Work Email</Label>
-              <Input 
+              <input 
                 id="email" 
                 type="email" 
                 placeholder="name@company.com" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="h-12 rounded-xl bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
+                className="flex h-12 w-full rounded-xl bg-slate-50/50 border-slate-200 px-3 py-2 text-sm focus:bg-white transition-all focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <div className="space-y-2">
@@ -70,13 +69,14 @@ export default function LoginPage() {
                 <Label htmlFor="password">Password</Label>
                 <Link href="#" className="text-sm text-primary font-medium hover:underline">Forgot?</Link>
               </div>
-              <Input 
+              <input 
                 id="password" 
                 type="password" 
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="h-12 rounded-xl bg-slate-50/50 border-slate-200 focus:bg-white transition-all"
+                className="flex h-12 w-full rounded-xl bg-slate-50/50 border-slate-200 px-3 py-2 text-sm focus:bg-white transition-all focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
 
