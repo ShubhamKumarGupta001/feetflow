@@ -19,8 +19,9 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useUser, useAuth } from '@/firebase';
+import { useUser, useAuth, useFirestore, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
+import { doc } from 'firebase/firestore';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
@@ -37,6 +38,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
+  const db = useFirestore();
+
+  // Check for the role document to ensure the user is "provisioned" for the prototype
+  const roleRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(db, 'roles_fleetManagers', user.uid);
+  }, [db, user]);
+
+  const { data: roleDoc, isLoading: isRoleLoading } = useDoc(roleRef);
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -44,18 +54,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [user, isUserLoading, router]);
 
-  const handleLogout = () => {
-    signOut(auth).then(() => {
-      router.push('/');
-    });
-  };
+  // PROTOTYPE AUTO-PROVISIONING: 
+  // If the user is logged in but has no role document (e.g. they registered before rules were updated 
+  // or logged in without registering), create it now.
+  useEffect(() => {
+    if (user && !isRoleLoading && !roleDoc) {
+      // Initialize User Profile
+      setDocumentNonBlocking(doc(db, 'users', user.uid), {
+        id: user.uid,
+        email: user.email,
+        roleId: 'fleet-manager'
+      }, { merge: true });
 
-  if (isUserLoading) {
+      // Provision Fleet Manager role for the prototype
+      setDocumentNonBlocking(doc(db, 'roles_fleetManagers', user.uid), {
+        id: user.uid,
+        name: 'Fleet Manager',
+        accessScope: 'Full administrative access to all logistics modules.'
+      }, { merge: true });
+    }
+  }, [user, isRoleLoading, roleDoc, db]);
+
+  if (isUserLoading || (user && isRoleLoading)) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-10 h-10 animate-spin text-primary" />
-          <p className="text-slate-500 font-medium animate-pulse">Authenticating FleetFlow...</p>
+          <p className="text-slate-500 font-medium animate-pulse">
+            {isRoleLoading ? "Verifying Permissions..." : "Authenticating FleetFlow..."}
+          </p>
         </div>
       </div>
     );
@@ -147,4 +174,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
     </SidebarProvider>
   );
+
+  function handleLogout() {
+    signOut(auth).then(() => {
+      router.push('/');
+    });
+  };
 }

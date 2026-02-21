@@ -8,7 +8,8 @@ import {
   useMemoFirebase, 
   addDocumentNonBlocking,
   deleteDocumentNonBlocking,
-  useUser
+  useUser,
+  useDoc
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -52,13 +53,24 @@ export default function VehiclesPage() {
     name: ''
   });
 
-  // Fetch Vehicles - Only if user is authenticated
-  const vehiclesRef = useMemoFirebase(() => {
+  // Verify role existence before starting the vehicle collection listener
+  // to prevent permission errors if provisioning is still in progress.
+  const roleRef = useMemoFirebase(() => {
     if (!user) return null;
-    return collection(firestore, 'vehicles');
+    return doc(firestore, 'roles_fleetManagers', user.uid);
   }, [firestore, user]);
+
+  const { data: roleDoc, isLoading: isRoleLoading } = useDoc(roleRef);
+
+  // Fetch Vehicles - Only if user has a verified role
+  const vehiclesRef = useMemoFirebase(() => {
+    if (!user || !roleDoc) return null;
+    return collection(firestore, 'vehicles');
+  }, [firestore, user, roleDoc]);
   
-  const { data: vehicles, isLoading } = useCollection(vehiclesRef);
+  const { data: vehicles, isLoading: isCollectionLoading } = useCollection(vehiclesRef);
+
+  const isLoading = isRoleLoading || isCollectionLoading;
 
   const filteredVehicles = vehicles?.filter(v => 
     v.licensePlate?.toLowerCase().includes(searchTerm.toLowerCase()) ||
