@@ -36,7 +36,8 @@ import {
   Clock,
   Truck,
   MapPin,
-  ChevronRight
+  ChevronRight,
+  Zap
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
@@ -44,10 +45,10 @@ import { cn } from '@/lib/utils';
 
 // Define the 4 tracking stages with professional styling
 const TRACKING_STAGES = [
-  { id: 'Scheduled', label: 'Scheduled', color: 'bg-slate-400', icon: Clock },
-  { id: 'Dispatched', label: 'Dispatched', color: 'bg-blue-500', icon: Navigation },
-  { id: 'In Transit', label: 'In Transit', color: 'bg-amber-500', icon: Truck },
-  { id: 'Completed', label: 'Delivered', color: 'bg-emerald-500', icon: CheckCircle2 },
+  { id: 'Scheduled', label: 'Scheduled', color: 'bg-slate-400', icon: Clock, actionLabel: 'Launch Dispatch' },
+  { id: 'Dispatched', label: 'Dispatched', color: 'bg-blue-500', icon: Navigation, actionLabel: 'Initiate Transit' },
+  { id: 'In Transit', label: 'In Transit', color: 'bg-amber-500', icon: Truck, actionLabel: 'Confirm Delivery' },
+  { id: 'Completed', label: 'Delivered', color: 'bg-emerald-500', icon: CheckCircle2, actionLabel: 'Finalized' },
 ];
 
 export default function TripsPage() {
@@ -196,7 +197,7 @@ export default function TripsPage() {
               Live Fleet Monitor
             </div>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 overflow-x-auto">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-32">
                 <Loader2 className="w-12 h-12 animate-spin text-primary/50" />
@@ -206,9 +207,9 @@ export default function TripsPage() {
               <Table>
                 <TableHeader className="bg-white border-b">
                   <TableRow className="border-none hover:bg-transparent">
-                    <TableHead className="w-[120px] h-16 pl-8 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Log Ref</TableHead>
+                    <TableHead className="w-[100px] h-16 pl-8 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Log Ref</TableHead>
                     <TableHead className="h-16 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Route Details</TableHead>
-                    <TableHead className="h-16 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Lifecycle Stage</TableHead>
+                    <TableHead className="h-16 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Cargo Lifecycle</TableHead>
                     <TableHead className="h-16 pr-8 text-right text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Command</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -219,50 +220,66 @@ export default function TripsPage() {
                     const activeStage = TRACKING_STAGES[currentStageIndex];
 
                     return (
-                      <TableRow key={trip.id} className="h-24 border-slate-50 hover:bg-slate-50/50 transition-all group">
+                      <TableRow key={trip.id} className="h-28 border-slate-50 hover:bg-slate-50/50 transition-all group">
                         <TableCell className="pl-8">
                           <span className="font-mono text-xs font-bold text-slate-400 group-hover:text-primary transition-colors">{trip.id}</span>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="min-w-[200px]">
                           <div className="flex items-center gap-3">
-                            <div className="p-2 bg-primary/5 rounded-xl text-primary">
+                            <div className="p-2.5 bg-primary/5 rounded-2xl text-primary shadow-sm border border-primary/10">
                               <MapPin className="w-4 h-4" />
                             </div>
                             <div>
-                              <div className="font-black text-slate-900 leading-none flex items-center gap-2">
+                              <div className="font-black text-slate-900 leading-none flex items-center gap-1.5 text-sm">
                                 {trip.origin} <ChevronRight className="w-3 h-3 text-slate-300" /> {trip.destination}
                               </div>
-                              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
-                                Payload: <span className="text-slate-600">{trip.cargoWeightKg}KG</span>
+                              <div className="flex items-center gap-2 mt-1.5">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-md">
+                                  {trip.cargoWeightKg}KG
+                                </span>
+                                {isCompleted && (
+                                  <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-1">
+                                    <CheckCircle2 className="w-3 h-3" /> VERIFIED
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="min-w-[280px]">
-                          <div className="space-y-3">
-                            <div className="flex gap-1">
-                              {TRACKING_STAGES.map((stage, idx) => (
-                                <div 
-                                  key={stage.id} 
-                                  className={cn(
-                                    "h-2 flex-1 rounded-full transition-all duration-700 shadow-inner",
-                                    idx <= currentStageIndex ? stage.color : "bg-slate-100"
-                                  )}
-                                />
-                              ))}
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <Badge className={cn(
-                                "rounded-xl px-3 py-1 font-black text-[9px] uppercase tracking-widest border-none shadow-sm",
-                                activeStage?.color,
-                                "text-white"
-                              )}>
-                                {activeStage?.label}
-                              </Badge>
-                              <span className="text-[10px] font-black text-slate-300 uppercase tracking-tighter">
-                                Stage {currentStageIndex + 1} / 4
-                              </span>
-                            </div>
+                        <TableCell className="min-w-[320px]">
+                          <div className="relative flex items-center justify-between w-full pr-4">
+                            {/* The background track line */}
+                            <div className="absolute top-1/2 left-0 w-full h-[3px] bg-slate-100 -translate-y-1/2 z-0 rounded-full" />
+                            {/* The progress line */}
+                            <div 
+                              className="absolute top-1/2 left-0 h-[3px] bg-primary transition-all duration-700 -translate-y-1/2 z-0 rounded-full" 
+                              style={{ width: `${(currentStageIndex / (TRACKING_STAGES.length - 1)) * 100}%` }}
+                            />
+                            
+                            {TRACKING_STAGES.map((stage, idx) => {
+                              const StageIcon = stage.icon;
+                              const isStageCompleted = idx < currentStageIndex;
+                              const isStageActive = idx === currentStageIndex;
+                              
+                              return (
+                                <div key={stage.id} className="relative z-10 flex flex-col items-center">
+                                  <div className={cn(
+                                    "w-9 h-9 rounded-2xl flex items-center justify-center transition-all duration-500 border-2",
+                                    isStageCompleted ? "bg-primary border-primary text-white shadow-md" :
+                                    isStageActive ? "bg-white border-primary text-primary shadow-lg scale-110 ring-4 ring-primary/5" :
+                                    "bg-white border-slate-200 text-slate-300"
+                                  )}>
+                                    <StageIcon className={cn("w-4 h-4", isStageActive && "animate-pulse")} />
+                                  </div>
+                                  <span className={cn(
+                                    "absolute -bottom-6 whitespace-nowrap text-[9px] font-black uppercase tracking-tighter transition-colors",
+                                    isStageActive ? "text-primary" : isStageCompleted ? "text-slate-600" : "text-slate-300"
+                                  )}>
+                                    {stage.label}
+                                  </span>
+                                </div>
+                              );
+                            })}
                           </div>
                         </TableCell>
                         <TableCell className="pr-8 text-right">
@@ -271,14 +288,14 @@ export default function TripsPage() {
                               size="sm" 
                               variant="outline"
                               onClick={() => advanceStage(trip)}
-                              className="h-9 rounded-xl border-primary/20 text-primary hover:bg-primary hover:text-white font-black text-[10px] uppercase tracking-widest transition-all shadow-sm active:scale-95"
+                              className="h-10 rounded-xl border-primary/20 text-primary hover:bg-primary hover:text-white font-black text-[10px] uppercase tracking-widest transition-all shadow-sm active:scale-95 px-4 group/btn"
                             >
-                              Advance Stage <ArrowRight className="w-3 h-3 ml-2" />
+                              {activeStage?.actionLabel} <ArrowRight className="w-3 h-3 ml-2 group-hover/btn:translate-x-1 transition-transform" />
                             </Button>
                           ) : (
-                            <div className="flex items-center justify-end gap-2 text-emerald-600 font-black text-[10px] uppercase tracking-[0.2em]">
-                              <CheckCircle2 className="w-4 h-4" />
-                              Delivered
+                            <div className="flex items-center justify-end gap-2 text-emerald-600 font-black text-[10px] uppercase tracking-[0.2em] bg-emerald-50 px-4 py-2 rounded-xl">
+                              <Zap className="w-3 h-3 fill-emerald-600" />
+                              Cycle Complete
                             </div>
                           )}
                         </TableCell>
@@ -291,11 +308,11 @@ export default function TripsPage() {
 
             {!isLoading && filteredTrips.length === 0 && (
               <div className="py-32 text-center flex flex-col items-center justify-center">
-                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+                <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mb-6 shadow-inner">
                   <ClipboardList className="w-10 h-10 text-slate-200" />
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 font-headline uppercase tracking-tighter">No Active Tracking</h3>
-                <p className="text-slate-400 mt-2 font-medium max-w-xs mx-auto text-sm">Deploy your first fleet asset to begin real-time cargo monitoring.</p>
+                <h3 className="text-xl font-bold text-slate-900 font-headline uppercase tracking-tighter">No Active Deployments</h3>
+                <p className="text-slate-400 mt-2 font-medium max-w-xs mx-auto text-sm">Initiate your first cargo lifecycle in the Deployment Hub.</p>
               </div>
             )}
           </CardContent>
@@ -401,3 +418,4 @@ export default function TripsPage() {
     </div>
   );
 }
+
