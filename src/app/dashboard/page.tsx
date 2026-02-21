@@ -18,10 +18,14 @@ export default function DashboardPage() {
   
   // Role Detection
   const userRef = useMemoFirebase(() => user ? doc(db, 'users', user.uid) : null, [db, user]);
-  const { data: userProfile } = useDoc(userRef);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef);
 
-  const vRef = useMemoFirebase(() => collection(db, 'vehicles'), [db]);
-  const tRef = useMemoFirebase(() => collection(db, 'trips'), [db]);
+  // Permission Logic: Only fetch data the user is authorized for based on rules
+  const canSeeTrips = userProfile?.roleId === 'fleet-manager' || userProfile?.roleId === 'dispatcher';
+  const canSeeVehicles = userProfile?.roleId === 'fleet-manager' || userProfile?.roleId === 'dispatcher' || userProfile?.roleId === 'safety-officer';
+
+  const vRef = useMemoFirebase(() => canSeeVehicles ? collection(db, 'vehicles') : null, [db, canSeeVehicles]);
+  const tRef = useMemoFirebase(() => canSeeTrips ? collection(db, 'trips') : null, [db, canSeeTrips]);
 
   const { data: vehicles, isLoading: vLoading } = useCollection(vRef);
   const { data: trips, isLoading: tLoading } = useCollection(tRef);
@@ -38,7 +42,15 @@ export default function DashboardPage() {
     ];
   }, [vehicles, trips]);
 
-  const isLoading = vLoading || tLoading;
+  const isLoading = isProfileLoading || vLoading || tLoading;
+
+  if (isProfileLoading) {
+    return (
+      <div className="flex h-64 w-full items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-10">
@@ -52,7 +64,7 @@ export default function DashboardPage() {
           />
         </div>
         <div className="flex items-center gap-4 w-full lg:w-auto">
-          {(userProfile?.roleId === 'fleet-manager' || userProfile?.roleId === 'dispatcher') && (
+          {canSeeTrips && (
             <Link href="/dashboard/trips" className="flex-1 lg:flex-none">
               <Button className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl px-8 font-bold shadow-xl shadow-primary/20 group">
                 Start New Trip <Plus className="ml-2 w-5 h-5 transition-transform group-hover:rotate-90" />
@@ -67,7 +79,7 @@ export default function DashboardPage() {
         <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100 flex items-center gap-3 text-amber-800">
           <ShieldAlert className="w-5 h-5" />
           <p className="text-sm font-medium">
-            You are viewing the dashboard as a <b>{userProfile?.roleId?.replace('-', ' ')}</b>. Some administrative modules are hidden.
+            You are viewing the dashboard as a <b>{userProfile?.roleId?.replace('-', ' ')}</b>. Module access is tailored to your scope.
           </p>
         </div>
       )}
@@ -92,69 +104,82 @@ export default function DashboardPage() {
       </div>
 
       {/* Operations Table */}
-      <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
-        <CardHeader className="px-8 py-8 border-b border-slate-50 flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-xl font-black font-headline">Operational Ledger</CardTitle>
-            <p className="text-sm text-slate-400 mt-1 font-medium">Real-time tracking of active dispatch cycles</p>
-          </div>
-          {(userProfile?.roleId === 'fleet-manager' || userProfile?.roleId === 'dispatcher') && (
+      {canSeeTrips && (
+        <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
+          <CardHeader className="px-8 py-8 border-b border-slate-50 flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-xl font-black font-headline">Operational Ledger</CardTitle>
+              <p className="text-sm text-slate-400 mt-1 font-medium">Real-time tracking of active dispatch cycles</p>
+            </div>
             <Link href="/dashboard/trips">
               <Button variant="ghost" className="text-primary font-black hover:bg-primary/5 rounded-xl">
                 Explorer View <ArrowUpRight className="ml-2 w-4 h-4" />
               </Button>
             </Link>
-          )}
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader className="bg-slate-50/50">
-              <TableRow className="border-none">
-                <TableHead className="h-16 pl-8 text-[10px] font-black uppercase text-slate-400 tracking-widest">Identifier</TableHead>
-                <TableHead className="h-16 text-[10px] font-black uppercase text-slate-400 tracking-widest">Logistics Route</TableHead>
-                <TableHead className="h-16 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Lifecycle</TableHead>
-                <TableHead className="h-16 pr-8 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest">Dispatch Date</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {trips?.slice(0, 6).map((trip: any) => (
-                <TableRow key={trip.id} className="h-20 border-slate-50 hover:bg-slate-50/80 transition-all group">
-                  <TableCell className="pl-8">
-                    <div className="font-bold text-slate-900">#{trip.id.slice(0, 8).toUpperCase()}</div>
-                    <div className="text-[10px] font-bold text-slate-400">CARGO: {trip.cargoWeightKg}KG</div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <span className="font-bold text-slate-700">{trip.origin}</span>
-                      <ArrowUpRight className="w-3 h-3 text-slate-300" />
-                      <span className="font-bold text-slate-900">{trip.destination}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Badge className={`rounded-full px-4 py-1.5 font-bold border-none text-[10px] tracking-widest uppercase ${
-                      trip.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 
-                      trip.status === 'Dispatched' ? 'bg-blue-100 text-blue-700' : 
-                      'bg-slate-100 text-slate-500'
-                    }`}>
-                      {trip.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="pr-8 text-right font-mono text-xs text-slate-500 font-bold">
-                    {new Date(trip.dispatchDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </TableCell>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader className="bg-slate-50/50">
+                <TableRow className="border-none">
+                  <TableHead className="h-16 pl-8 text-[10px] font-black uppercase text-slate-400 tracking-widest">Identifier</TableHead>
+                  <TableHead className="h-16 text-[10px] font-black uppercase text-slate-400 tracking-widest">Logistics Route</TableHead>
+                  <TableHead className="h-16 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Lifecycle</TableHead>
+                  <TableHead className="h-16 pr-8 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest">Dispatch Date</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {!isLoading && (!trips || trips.length === 0) && (
-            <div className="py-20 text-center flex flex-col items-center">
-              <Package className="w-12 h-12 text-slate-100 mb-4" />
-              <p className="text-slate-400 font-bold">No active operations detected.</p>
-              <p className="text-xs text-slate-300 mt-1">Start a new trip to populate your command center.</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {trips?.slice(0, 6).map((trip: any) => (
+                  <TableRow key={trip.id} className="h-20 border-slate-50 hover:bg-slate-50/80 transition-all group">
+                    <TableCell className="pl-8">
+                      <div className="font-bold text-slate-900">#{trip.id.slice(0, 8).toUpperCase()}</div>
+                      <div className="text-[10px] font-bold text-slate-400">CARGO: {trip.cargoWeightKg}KG</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold text-slate-700">{trip.origin}</span>
+                        <ArrowUpRight className="w-3 h-3 text-slate-300" />
+                        <span className="font-bold text-slate-900">{trip.destination}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge className={`rounded-full px-4 py-1.5 font-bold border-none text-[10px] tracking-widest uppercase ${
+                        trip.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 
+                        trip.status === 'Dispatched' ? 'bg-blue-100 text-blue-700' : 
+                        'bg-slate-100 text-slate-500'
+                      }`}>
+                        {trip.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="pr-8 text-right font-mono text-xs text-slate-500 font-bold">
+                      {new Date(trip.dispatchDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {!isLoading && (!trips || trips.length === 0) && (
+              <div className="py-20 text-center flex flex-col items-center">
+                <Package className="w-12 h-12 text-slate-100 mb-4" />
+                <p className="text-slate-400 font-bold">No active operations detected.</p>
+                <p className="text-xs text-slate-300 mt-1">Start a new trip to populate your command center.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Financial Overview for Analysts */}
+      {userProfile?.roleId === 'financial-analyst' && (
+        <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-slate-900 text-white">
+          <CardContent className="p-12 text-center space-y-4">
+            <h3 className="text-2xl font-bold font-headline">Financial Intelligence</h3>
+            <p className="text-slate-400 max-w-lg mx-auto">Access detailed fuel logs and operational expense audits in the Intelligence module.</p>
+            <Link href="/dashboard/analytics">
+              <Button className="bg-primary hover:bg-primary/90 rounded-xl mt-4">Open Reports</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

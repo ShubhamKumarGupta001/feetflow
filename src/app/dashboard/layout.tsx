@@ -48,7 +48,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const userProfileRef = useMemoFirebase(() => user ? doc(db, 'users', user.uid) : null, [db, user]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
-  // 2. Map roleId to a friendly display name
+  // 2. Self-Healing Role Provisioning: Ensures existing users have the required role flag doc
+  useEffect(() => {
+    if (user && userProfile && !isProfileLoading) {
+      const roleId = userProfile.roleId || 'fleet-manager';
+      const roleCollection = 
+        roleId === 'dispatcher' ? 'roles_dispatchers' :
+        roleId === 'safety-officer' ? 'roles_safetyOfficers' :
+        roleId === 'financial-analyst' ? 'roles_financialAnalysts' :
+        'roles_fleetManagers';
+
+      // Non-blocking provisioning to ensure rules are satisfied
+      setDocumentNonBlocking(doc(db, roleCollection, user.uid), {
+        id: user.uid,
+        name: roleId.replace('-', ' ').toUpperCase(),
+        accessScope: `Standard access for ${roleId} role.`
+      }, { merge: true });
+    }
+  }, [user, userProfile, isProfileLoading, db]);
+
+  // 3. Map roleId to a friendly display name
   const roleName = useMemo(() => {
     switch(userProfile?.roleId) {
       case 'fleet-manager': return 'Fleet Manager';
@@ -59,7 +78,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [userProfile]);
 
-  // 3. Filter Nav Items based on Role
+  // 4. Filter Nav Items based on Role
   const filteredNavItems = useMemo(() => {
     if (!userProfile) return [];
     return navItems.filter(item => item.roles.includes(userProfile.roleId));
