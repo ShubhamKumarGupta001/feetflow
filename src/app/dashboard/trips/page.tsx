@@ -80,6 +80,7 @@ export default function TripsPage() {
 
     const vehicle = vehicles?.find(v => v.id === formData.vehicleId);
     const cargoWeight = Number(formData.cargoWeightKg) || 0;
+    const vehicleLimit = vehicle?.maxCapacityKg || 0;
     
     // CRITICAL: Payload Validation Logic
     if (cargoWeight <= 0) {
@@ -87,12 +88,18 @@ export default function TripsPage() {
       return;
     }
 
-    if (cargoWeight > (vehicle?.maxCapacityKg || 0)) {
-      toast({ 
+    if (cargoWeight > vehicleLimit) {
+      const { dismiss } = toast({ 
         variant: "destructive", 
-        title: "Payload Overload", 
-        description: `Deployment aborted. The cargo (${cargoWeight}kg) exceeds the ${vehicle?.name}'s maximum capacity of ${vehicle?.maxCapacityKg}kg.` 
+        title: "PAYLOAD OVERLOAD DETECTED", 
+        description: `CRITICAL ERROR: The entered cargo weight (${cargoWeight}kg) exceeds the ${vehicle?.name}'s maximum support limit of ${vehicleLimit}kg. This dispatch has been blocked for safety.` 
       });
+
+      // Show error for exactly 20 seconds then disappear as requested
+      setTimeout(() => {
+        dismiss();
+      }, 20000);
+
       return;
     }
 
