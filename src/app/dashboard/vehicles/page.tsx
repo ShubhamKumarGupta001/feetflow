@@ -7,6 +7,7 @@ import {
   useFirestore, 
   useMemoFirebase, 
   addDocumentNonBlocking,
+  updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
   useUser,
   useDoc
@@ -32,20 +33,24 @@ import {
   X, 
   Layers, 
   Loader2,
-  Truck
+  Truck,
+  Pencil
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 
 /**
  * Vehicle Registry Module
  * Central asset database where fleet managers manage the lifecycle of vehicles.
+ * Now supports real-time editing of asset details and operational status.
  */
 export default function VehiclesPage() {
   const { user } = useUser();
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState<any>(null);
   
   const [formData, setFormData] = useState({
     licensePlate: '',
@@ -53,7 +58,8 @@ export default function VehiclesPage() {
     odometerKm: '',
     type: '',
     model: '',
-    name: ''
+    name: '',
+    status: 'Available'
   });
 
   // 1. Authorization Gating
@@ -77,33 +83,71 @@ export default function VehiclesPage() {
     ) || [];
   }, [vehicles, searchTerm]);
 
-  // 4. Mutation: Add New Asset to Firestore
-  const handleSave = () => {
-    if (!formData.licensePlate || !formData.model) return;
-
-    const vehicleId = formData.licensePlate.toUpperCase();
-    const vehicleName = formData.name || `Asset-${formData.licensePlate}`;
-
-    // Non-blocking mutation preserves UI responsiveness
-    addDocumentNonBlocking(vehiclesRef, {
-      id: vehicleId,
-      ...formData,
-      name: vehicleName,
-      licensePlate: formData.licensePlate.toUpperCase(),
-      maxCapacityKg: Number(formData.maxCapacityKg),
-      odometerKm: Number(formData.odometerKm),
-      acquisitionCost: 0,
-      status: 'Available',
-      region: 'Central',
+  // 4. Open Modal for Edit
+  const handleEdit = (vehicle: any) => {
+    setEditingVehicle(vehicle);
+    setFormData({
+      licensePlate: vehicle.licensePlate || '',
+      maxCapacityKg: vehicle.maxCapacityKg?.toString() || '',
+      odometerKm: vehicle.odometerKm?.toString() || '',
+      type: vehicle.type || '',
+      model: vehicle.model || '',
+      name: vehicle.name || '',
+      status: vehicle.status || 'Available'
     });
+    setIsModalOpen(true);
+  };
 
-    toast({ title: "Asset Registered", description: `${vehicleName} has been added to the fleet database.` });
+  // 5. Reset Form
+  const resetForm = () => {
+    setFormData({ licensePlate: '', maxCapacityKg: '', odometerKm: '', type: '', model: '', name: '', status: 'Available' });
+    setEditingVehicle(null);
+  };
 
-    setFormData({ licensePlate: '', maxCapacityKg: '', odometerKm: '', type: '', model: '', name: '' });
+  // 6. Mutation: Save (Create or Update) Asset
+  const handleSave = () => {
+    if (!formData.licensePlate || !formData.model) {
+      toast({ variant: "destructive", title: "Validation Error", description: "Plate and Model are required." });
+      return;
+    }
+
+    if (editingVehicle) {
+      // Update existing document
+      const docRef = doc(firestore, 'vehicles', editingVehicle.id);
+      updateDocumentNonBlocking(docRef, {
+        licensePlate: formData.licensePlate.toUpperCase(),
+        maxCapacityKg: Number(formData.maxCapacityKg),
+        odometerKm: Number(formData.odometerKm),
+        type: formData.type,
+        model: formData.model,
+        name: formData.name || `Asset-${formData.licensePlate}`,
+        status: formData.status
+      });
+      toast({ title: "Asset Updated", description: `${formData.licensePlate} details have been refreshed.` });
+    } else {
+      // Create new document
+      const vehicleId = formData.licensePlate.toUpperCase();
+      const vehicleName = formData.name || `Asset-${formData.licensePlate}`;
+
+      addDocumentNonBlocking(vehiclesRef, {
+        id: vehicleId,
+        ...formData,
+        name: vehicleName,
+        licensePlate: formData.licensePlate.toUpperCase(),
+        maxCapacityKg: Number(formData.maxCapacityKg),
+        odometerKm: Number(formData.odometerKm),
+        acquisitionCost: 0,
+        status: 'Available',
+        region: 'Central',
+      });
+      toast({ title: "Asset Registered", description: `${vehicleName} added to inventory.` });
+    }
+
+    resetForm();
     setIsModalOpen(false);
   };
 
-  // 5. Mutation: Retire Asset from Firestore
+  // 7. Mutation: Retire Asset
   const handleDelete = (id: string) => {
     const docRef = doc(firestore, 'vehicles', id);
     deleteDocumentNonBlocking(docRef);
@@ -119,15 +163,20 @@ export default function VehiclesPage() {
         </div>
         
         {canManage && (
-          <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <Dialog open={isModalOpen} onOpenChange={(open) => {
+            setIsModalOpen(open);
+            if (!open) resetForm();
+          }}>
             <DialogTrigger asChild>
-              <Button className="rounded-xl bg-primary shadow-lg shadow-primary/20 h-11 px-6 font-bold">
+              <Button onClick={resetForm} className="rounded-xl bg-primary shadow-lg shadow-primary/20 h-11 px-6 font-bold">
                 <Plus className="w-5 h-5 mr-2" /> Register Asset
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px] rounded-2xl">
               <DialogHeader>
-                <DialogTitle className="text-2xl font-bold font-headline uppercase tracking-tighter">New Asset Intake</DialogTitle>
+                <DialogTitle className="text-2xl font-bold font-headline uppercase tracking-tighter">
+                  {editingVehicle ? 'Modify Asset' : 'New Asset Intake'}
+                </DialogTitle>
               </DialogHeader>
               <div className="grid gap-6 py-4">
                 <div className="grid gap-2">
@@ -160,9 +209,27 @@ export default function VehiclesPage() {
                     <Input id="odometer" type="number" value={formData.odometerKm} onChange={(e) => setFormData({...formData, odometerKm: e.target.value})} className="rounded-xl h-11" />
                   </div>
                 </div>
+                {editingVehicle && (
+                  <div className="grid gap-2">
+                    <Label className="font-bold text-slate-700">Operational Status</Label>
+                    <Select value={formData.status} onValueChange={(val) => setFormData({...formData, status: val})}>
+                      <SelectTrigger className="rounded-xl h-11">
+                        <SelectValue placeholder="Update Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Available">Available</SelectItem>
+                        <SelectItem value="On Trip">On Trip</SelectItem>
+                        <SelectItem value="In Shop">In Shop</SelectItem>
+                        <SelectItem value="Retired">Retired</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
               <DialogFooter className="flex gap-3 pt-4">
-                <Button onClick={handleSave} className="flex-1 bg-primary hover:bg-primary/90 rounded-xl h-11 font-bold">Save Asset</Button>
+                <Button onClick={handleSave} className="flex-1 bg-primary hover:bg-primary/90 rounded-xl h-11 font-bold">
+                  {editingVehicle ? 'Update Asset' : 'Save Asset'}
+                </Button>
                 <Button variant="outline" onClick={() => setIsModalOpen(false)} className="flex-1 rounded-xl h-11 font-bold text-destructive hover:bg-destructive/5 border-destructive">Cancel</Button>
               </DialogFooter>
             </DialogContent>
@@ -170,7 +237,6 @@ export default function VehiclesPage() {
         )}
       </div>
 
-      {/* Registry Table with Real-time Data */}
       <Card className="border-none shadow-sm overflow-hidden bg-white">
         <CardHeader className="p-6 bg-white border-b flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="relative w-full sm:w-96">
@@ -228,14 +294,24 @@ export default function VehiclesPage() {
                     </TableCell>
                     <TableCell className="pr-8 text-right">
                       {canManage && (
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => handleDelete(vehicle.id)}
-                          className="hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-full h-8 w-8 transition-colors"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => handleEdit(vehicle)}
+                            className="hover:bg-primary/5 text-slate-300 hover:text-primary rounded-full h-8 w-8 transition-colors"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => handleDelete(vehicle.id)}
+                            className="hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-full h-8 w-8 transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
