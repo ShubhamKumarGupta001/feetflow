@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarGroup, SidebarGroupLabel } from '@/components/ui/sidebar';
 import { 
   LayoutDashboard, 
@@ -16,25 +16,24 @@ import {
   GaugeCircle,
   Loader2,
   Sparkles,
-  UserCircle
+  ShieldCheck
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useUser, useAuth, useFirestore, useDoc, setDocumentNonBlocking, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
+import { useUser, useAuth, useFirestore, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { doc, collection, getDocs } from 'firebase/firestore';
-import { Button } from '@/components/ui/button';
+import { doc, collection, getDocs, writeBatch } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 
 const navItems = [
-  { icon: LayoutDashboard, label: 'Overview', href: '/dashboard' },
-  { icon: Truck, label: 'Fleet Registry', href: '/dashboard/vehicles' },
-  { icon: ClipboardList, label: 'Trip Dispatch', href: '/dashboard/trips' },
-  { icon: Wrench, label: 'Maintenance', href: '/dashboard/maintenance' },
-  { icon: Receipt, label: 'Financials', href: '/dashboard/expenses' },
-  { icon: GaugeCircle, label: 'Safety Hub', href: '/dashboard/performance' },
-  { icon: LineChart, label: 'Intelligence', href: '/dashboard/analytics' },
+  { icon: LayoutDashboard, label: 'Overview', href: '/dashboard', roles: ['fleet-manager', 'dispatcher', 'safety-officer', 'financial-analyst'] },
+  { icon: Truck, label: 'Fleet Registry', href: '/dashboard/vehicles', roles: ['fleet-manager', 'dispatcher', 'safety-officer'] },
+  { icon: ClipboardList, label: 'Trip Dispatch', href: '/dashboard/trips', roles: ['fleet-manager', 'dispatcher'] },
+  { icon: Wrench, label: 'Maintenance', href: '/dashboard/maintenance', roles: ['fleet-manager'] },
+  { icon: Receipt, label: 'Financials', href: '/dashboard/expenses', roles: ['fleet-manager', 'financial-analyst'] },
+  { icon: GaugeCircle, label: 'Safety Hub', href: '/dashboard/performance', roles: ['fleet-manager', 'dispatcher', 'safety-officer'] },
+  { icon: LineChart, label: 'Intelligence', href: '/dashboard/analytics', roles: ['fleet-manager', 'financial-analyst'] },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -44,6 +43,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const auth = useAuth();
   const db = useFirestore();
   const [isSeeding, setIsSeeding] = useState(false);
+
+  // 1. Get User Profile to find the roleId
+  const userProfileRef = useMemoFirebase(() => user ? doc(db, 'users', user.uid) : null, [db, user]);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
+
+  // 2. Map roleId to a friendly display name
+  const roleName = useMemo(() => {
+    switch(userProfile?.roleId) {
+      case 'fleet-manager': return 'Fleet Manager';
+      case 'dispatcher': return 'Dispatcher';
+      case 'safety-officer': return 'Safety Officer';
+      case 'financial-analyst': return 'Financial Analyst';
+      default: return 'Authorized User';
+    }
+  }, [userProfile]);
+
+  // 3. Filter Nav Items based on Role
+  const filteredNavItems = useMemo(() => {
+    if (!userProfile) return [];
+    return navItems.filter(item => item.roles.includes(userProfile.roleId));
+  }, [userProfile]);
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -58,25 +78,39 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     try {
       const vehiclesRef = collection(db, 'vehicles');
       const vSnap = await getDocs(vehiclesRef);
+      
       if (vSnap.empty) {
-        // Seeding logic here...
+        const batch = writeBatch(db);
+        
+        // Demo Vehicles
         const vehicles = [
           { id: 'V-001', name: 'Scania Heavy R500', model: 'R500', licensePlate: 'ABC-123', maxCapacityKg: 15000, odometerKm: 45000, acquisitionCost: 1200000, status: 'Available', type: 'Truck', region: 'Central' },
           { id: 'V-002', name: 'Ford Transit', model: 'Transit', licensePlate: 'XYZ-789', maxCapacityKg: 2000, odometerKm: 12000, acquisitionCost: 450000, status: 'On Trip', type: 'Van', region: 'North' },
         ];
-        await Promise.all(vehicles.map(v => addDocumentNonBlocking(vehiclesRef, v)));
-        toast({ title: "Environment Ready", description: "Demo records have been successfully injected." });
+        vehicles.forEach(v => batch.set(doc(vehiclesRef, v.id), v));
+
+        // Demo Drivers
+        const driversRef = collection(db, 'drivers');
+        const drivers = [
+          { id: 'D-001', name: 'Robert Miller', licenseCategory: 'Class A', licenseExpiryDate: '2026-12-30', status: 'On Duty', safetyScore: 94, totalTrips: 120, completedTrips: 118, completionRate: 98 },
+          { id: 'D-002', name: 'Sarah Connor', licenseCategory: 'Class B', licenseExpiryDate: '2023-01-01', status: 'Suspended', safetyScore: 82, totalTrips: 45, completedTrips: 40, completionRate: 88 },
+        ];
+        drivers.forEach(d => batch.set(doc(driversRef, d.id), d));
+
+        await batch.commit();
+        toast({ title: "Environment Ready", description: "Standard demo records have been successfully injected." });
       } else {
         toast({ title: "Records Exist", description: "Your fleet environment is already populated." });
       }
     } catch (e) {
       console.error(e);
+      toast({ variant: "destructive", title: "Seeding Failed", description: "Check permissions for demo generation." });
     } finally {
       setIsSeeding(false);
     }
   };
 
-  if (isUserLoading) {
+  if (isUserLoading || isProfileLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-slate-50">
         <Loader2 className="w-10 h-10 animate-spin text-primary" />
@@ -88,7 +122,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <SidebarProvider>
-      <div className="flex h-screen w-full bg-[#F8FAFC] overflow-hidden">
+      <div className="flex h-screen w-full bg-[#F8FAFC] overflow-hidden font-body">
         <Sidebar className="border-r border-slate-200/50 bg-white">
           <SidebarHeader className="p-8">
             <Link href="/" className="flex items-center gap-3 group">
@@ -103,7 +137,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <SidebarGroup>
               <SidebarGroupLabel className="px-4 mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Command Center</SidebarGroupLabel>
               <SidebarMenu className="gap-1">
-                {navItems.map((item) => (
+                {filteredNavItems.map((item) => (
                   <SidebarMenuItem key={item.label}>
                     <SidebarMenuButton 
                       asChild 
@@ -124,18 +158,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </SidebarMenu>
             </SidebarGroup>
 
-            <SidebarGroup className="mt-12">
+            <SidebarGroup className="mt-8">
               <SidebarGroupLabel className="px-4 mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">System</SidebarGroupLabel>
               <SidebarMenu className="gap-1">
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    onClick={seedDemoData} 
-                    className="h-12 rounded-2xl px-4 text-emerald-600 hover:bg-emerald-50 transition-all font-bold"
-                  >
-                    <Sparkles className="w-5 h-5 mr-4" />
-                    <span>Quick Seed</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                {userProfile?.roleId === 'fleet-manager' && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      onClick={seedDemoData} 
+                      disabled={isSeeding}
+                      className="h-12 rounded-2xl px-4 text-emerald-600 hover:bg-emerald-50 transition-all font-bold"
+                    >
+                      {isSeeding ? <Loader2 className="w-5 h-5 mr-4 animate-spin" /> : <Sparkles className="w-5 h-5 mr-4" />}
+                      <span>{isSeeding ? 'Seeding...' : 'Quick Seed'}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
                 <SidebarMenuItem>
                   <SidebarMenuButton className="h-12 rounded-2xl px-4 text-slate-500 hover:bg-slate-100">
                     <Settings className="w-5 h-5 mr-4" />
@@ -173,7 +210,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="flex items-center gap-4 pl-8 border-l">
                 <div className="text-right">
                   <p className="text-sm font-bold text-slate-900 leading-none">{user.email?.split('@')[0]}</p>
-                  <p className="text-[10px] text-primary font-black uppercase tracking-widest mt-1">Fleet Chief</p>
+                  <p className="text-[10px] text-primary font-black uppercase tracking-widest mt-1 flex items-center gap-1 justify-end">
+                    <ShieldCheck className="w-3 h-3" />
+                    {roleName}
+                  </p>
                 </div>
                 <Avatar className="h-11 w-11 border-2 border-primary/10 shadow-lg">
                   <AvatarImage src={`https://picsum.photos/seed/${user.uid}/100/100`} />

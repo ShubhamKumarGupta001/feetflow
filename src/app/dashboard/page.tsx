@@ -7,14 +7,19 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Search, Filter, Plus, Truck, Wrench, Package, MoreHorizontal, Loader2, ArrowUpRight } from 'lucide-react';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { Search, Plus, Truck, Wrench, Package, MoreHorizontal, Loader2, ArrowUpRight, ShieldAlert } from 'lucide-react';
+import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
 import Link from 'next/link';
 
 export default function DashboardPage() {
+  const { user } = useUser();
   const db = useFirestore();
   
+  // Role Detection
+  const userRef = useMemoFirebase(() => user ? doc(db, 'users', user.uid) : null, [db, user]);
+  const { data: userProfile } = useDoc(userRef);
+
   const vRef = useMemoFirebase(() => collection(db, 'vehicles'), [db]);
   const tRef = useMemoFirebase(() => collection(db, 'trips'), [db]);
 
@@ -47,13 +52,25 @@ export default function DashboardPage() {
           />
         </div>
         <div className="flex items-center gap-4 w-full lg:w-auto">
-          <Link href="/dashboard/trips" className="flex-1 lg:flex-none">
-            <Button className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl px-8 font-bold shadow-xl shadow-primary/20 group">
-              Start New Trip <Plus className="ml-2 w-5 h-5 transition-transform group-hover:rotate-90" />
-            </Button>
-          </Link>
+          {(userProfile?.roleId === 'fleet-manager' || userProfile?.roleId === 'dispatcher') && (
+            <Link href="/dashboard/trips" className="flex-1 lg:flex-none">
+              <Button className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl px-8 font-bold shadow-xl shadow-primary/20 group">
+                Start New Trip <Plus className="ml-2 w-5 h-5 transition-transform group-hover:rotate-90" />
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
+
+      {/* Role-Based Alert for Restricted Views */}
+      {userProfile?.roleId !== 'fleet-manager' && (
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100 flex items-center gap-3 text-amber-800">
+          <ShieldAlert className="w-5 h-5" />
+          <p className="text-sm font-medium">
+            You are viewing the dashboard as a <b>{userProfile?.roleId?.replace('-', ' ')}</b>. Some administrative modules are hidden.
+          </p>
+        </div>
+      )}
 
       {/* Hero Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -81,11 +98,13 @@ export default function DashboardPage() {
             <CardTitle className="text-xl font-black font-headline">Operational Ledger</CardTitle>
             <p className="text-sm text-slate-400 mt-1 font-medium">Real-time tracking of active dispatch cycles</p>
           </div>
-          <Link href="/dashboard/trips">
-            <Button variant="ghost" className="text-primary font-black hover:bg-primary/5 rounded-xl">
-              Explorer View <ArrowUpRight className="ml-2 w-4 h-4" />
-            </Button>
-          </Link>
+          {(userProfile?.roleId === 'fleet-manager' || userProfile?.roleId === 'dispatcher') && (
+            <Link href="/dashboard/trips">
+              <Button variant="ghost" className="text-primary font-black hover:bg-primary/5 rounded-xl">
+                Explorer View <ArrowUpRight className="ml-2 w-4 h-4" />
+              </Button>
+            </Link>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           <Table>
