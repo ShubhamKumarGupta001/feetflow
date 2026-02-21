@@ -46,7 +46,7 @@ import { cn } from '@/lib/utils';
  * Driver Performance & Safety Profiles
  * Manages personnel records and enforces license compliance rules.
  * Safety scores are calculated based on accidents and trip completion rates.
- * Status logic: Expired License -> Forced Suspended
+ * Status logic: Expired License OR Zero Safety Score -> Forced Suspended
  */
 export default function PerformancePage() {
   const { user } = useUser();
@@ -120,11 +120,6 @@ export default function PerformancePage() {
     expiryDate.setHours(0, 0, 0, 0);
     const isExpired = expiryDate < now;
 
-    // BUSINESS RULE: If expired, status is ALWAYS Suspended.
-    // If not expired, follow Duty Status.
-    let finalStatus = formData.dutyStatus === 'On Duty' ? 'Available' : 'Off Duty';
-    if (isExpired) finalStatus = 'Suspended';
-
     // Safety Score Calculation Analysis
     const total = Number(formData.totalTrips) || 0;
     const completed = Number(formData.completedTrips) || 0;
@@ -135,6 +130,12 @@ export default function PerformancePage() {
     let calculatedSafetyScore = 100 - (accidents * 20);
     if (completionRate > 90) calculatedSafetyScore += 5;
     calculatedSafetyScore = Math.max(0, Math.min(100, calculatedSafetyScore));
+
+    const isSafetyZero = calculatedSafetyScore === 0;
+
+    // BUSINESS RULE: If expired OR Safety Score is zero, status is ALWAYS Suspended.
+    let finalStatus = formData.dutyStatus === 'On Duty' ? 'Available' : 'Off Duty';
+    if (isExpired || isSafetyZero) finalStatus = 'Suspended';
 
     setDocumentNonBlocking(doc(firestore, 'drivers', driverId), {
       id: driverId,
@@ -153,10 +154,12 @@ export default function PerformancePage() {
     }, { merge: true });
 
     toast({
-      title: isExpired ? "Action Required" : "Profile Synced",
-      variant: isExpired ? "destructive" : "default",
+      title: (isExpired || isSafetyZero) ? "Action Required" : "Profile Synced",
+      variant: (isExpired || isSafetyZero) ? "destructive" : "default",
       description: isExpired 
         ? `Compliance Violation: Driver "${formData.name}" has been Suspended due to an expired license.` 
+        : isSafetyZero
+        ? `Safety Violation: Driver "${formData.name}" has been Suspended due to a zero safety index.`
         : `Personnel record synchronized. Status: ${finalStatus}`,
     });
 
@@ -272,12 +275,12 @@ export default function PerformancePage() {
                   </div>
                 </div>
                 
-                {formData.licenseExpiryDate && new Date(formData.licenseExpiryDate) < new Date() && (
+                {( (formData.licenseExpiryDate && new Date(formData.licenseExpiryDate) < new Date()) || (100 - (Number(formData.accidents) * 20) <= 0) ) && (
                   <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-800 text-xs font-bold animate-pulse">
                     <AlertTriangle className="w-5 h-5 shrink-0" />
                     <div>
                       <p className="uppercase tracking-widest text-[9px] mb-1">Status Restriction Applied</p>
-                      <p>Compliance system will automatically mark this driver as <strong>SUSPENDED</strong>. Dispatch unavailable.</p>
+                      <p>Compliance system will automatically mark this driver as <strong>SUSPENDED</strong>. Dispatch unavailable due to {new Date(formData.licenseExpiryDate) < new Date() ? 'License Expiry' : 'Critical Safety Score'}.</p>
                     </div>
                   </div>
                 )}
@@ -342,6 +345,7 @@ export default function PerformancePage() {
                   const expiryDate = new Date(driver.licenseExpiryDate);
                   expiryDate.setHours(0,0,0,0);
                   const isExpired = expiryDate < now;
+                  const isCriticalSafety = driver.safetyScore === 0;
 
                   return (
                     <TableRow key={driver.id} className="h-24 border-slate-50 hover:bg-slate-50/50 transition-all group">
@@ -390,14 +394,17 @@ export default function PerformancePage() {
                       </TableCell>
                       <TableCell className="pr-10 text-right">
                         <div className="flex items-center justify-end gap-3">
-                          <Badge className={cn(
-                            "rounded-xl px-4 py-2 font-black text-[10px] uppercase tracking-widest border-none shadow-sm font-headline",
-                            driver.status === 'Suspended' ? 'bg-red-500 text-white' : 
-                            driver.status === 'Available' ? 'bg-emerald-100 text-emerald-700' : 
-                            driver.status === 'On Trip' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-600'
-                          )}>
-                            {driver.status}
-                          </Badge>
+                          <div className="flex flex-col items-end gap-1">
+                            <Badge className={cn(
+                              "rounded-xl px-4 py-2 font-black text-[10px] uppercase tracking-widest border-none shadow-sm font-headline",
+                              driver.status === 'Suspended' ? 'bg-red-500 text-white' : 
+                              driver.status === 'Available' ? 'bg-emerald-100 text-emerald-700' : 
+                              driver.status === 'On Trip' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-600'
+                            )}>
+                              {driver.status}
+                            </Badge>
+                            {isCriticalSafety && <span className="text-[8px] font-black text-red-600 uppercase">Safety Lock</span>}
+                          </div>
                           {canManage && (
                             <div className="flex gap-1">
                               <Button variant="ghost" size="icon" onClick={() => handleEdit(driver)} className="h-9 w-9 text-primary rounded-xl hover:bg-primary/10 transition-colors">
