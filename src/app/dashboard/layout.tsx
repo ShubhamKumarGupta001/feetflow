@@ -20,9 +20,9 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useUser, useAuth, useFirestore, useDoc, setDocumentNonBlocking, useMemoFirebase, useCollection, addDocumentNonBlocking } from '@/firebase';
+import { useUser, useAuth, useFirestore, useDoc, setDocumentNonBlocking, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { doc, collection, getDocs } from 'firebase/firestore';
+import { doc, collection, getDocs, writeBatch } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 
@@ -44,7 +44,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const db = useFirestore();
   const [isSeeding, setIsSeeding] = useState(false);
 
-  // Check for the role document to ensure the user is "provisioned" for the prototype
   const roleRef = useMemoFirebase(() => {
     if (!user) return null;
     return doc(db, 'roles_fleetManagers', user.uid);
@@ -58,7 +57,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [user, isUserLoading, router]);
 
-  // PROTOTYPE AUTO-PROVISIONING: 
   useEffect(() => {
     if (user && !isRoleLoading && !roleDoc) {
       setDocumentNonBlocking(doc(db, 'users', user.uid), {
@@ -75,7 +73,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [user, isRoleLoading, roleDoc, db]);
 
-  // DEMO SEEDING LOGIC
   const seedDemoData = async () => {
     if (!user || isSeeding) return;
     setIsSeeding(true);
@@ -83,44 +80,62 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     try {
       const vehiclesRef = collection(db, 'vehicles');
       const driversRef = collection(db, 'drivers');
+      const tripsRef = collection(db, 'trips');
+      const maintenanceRef = collection(db, 'maintenance_logs');
+      const fuelRef = collection(db, 'fuel_logs');
+      const expenseRef = collection(db, 'expenses');
       
       const vSnap = await getDocs(vehiclesRef);
       if (vSnap.empty) {
-        // Vehicles
-        const v1 = { id: 'V-001', name: 'Scania Heavy', model: 'R500', licensePlate: 'ABC-123', maxCapacityKg: 15000, odometerKm: 45000, acquisitionCost: 1200000, status: 'Available', type: 'Truck', region: 'Central' };
-        const v2 = { id: 'V-002', name: 'Ford Delivery', model: 'Transit', licensePlate: 'XYZ-789', maxCapacityKg: 2000, odometerKm: 12000, acquisitionCost: 450000, status: 'On Trip', type: 'Van', region: 'North' };
-        const v3 = { id: 'V-003', name: 'Hiace Mini', model: 'Toyota 2022', licensePlate: 'LMN-456', maxCapacityKg: 1000, odometerKm: 8000, acquisitionCost: 350000, status: 'In Shop', type: 'Mini', region: 'South' };
-        
+        // 1. Vehicles
+        const vehicles = [
+          { id: 'V-001', name: 'Scania Heavy R500', model: 'R500', licensePlate: 'ABC-123', maxCapacityKg: 15000, odometerKm: 45000, acquisitionCost: 1200000, status: 'Available', type: 'Truck', region: 'Central' },
+          { id: 'V-002', name: 'Ford Delivery Transit', model: 'Transit', licensePlate: 'XYZ-789', maxCapacityKg: 2000, odometerKm: 12000, acquisitionCost: 450000, status: 'On Trip', type: 'Van', region: 'North' },
+          { id: 'V-003', name: 'Toyota Hiace 2022', model: 'Hiace', licensePlate: 'LMN-456', maxCapacityKg: 1000, odometerKm: 8000, acquisitionCost: 350000, status: 'In Shop', type: 'Mini', region: 'South' },
+          { id: 'V-004', name: 'Volvo FM 420', model: 'FM-420', licensePlate: 'KLP-011', maxCapacityKg: 18000, odometerKm: 52000, acquisitionCost: 1400000, status: 'Available', type: 'Truck', region: 'East' }
+        ];
+
+        // 2. Drivers
+        const drivers = [
+          { id: 'D-001', name: 'John Doe', licenseCategory: 'Class A', licenseExpiryDate: '2025-12-01', status: 'On Trip', safetyScore: 98, totalTrips: 45, completedTrips: 44, completionRate: 97 },
+          { id: 'D-002', name: 'Sarah Miller', licenseCategory: 'Class B', licenseExpiryDate: '2026-05-15', status: 'On Duty', safetyScore: 92, totalTrips: 12, completedTrips: 10, completionRate: 83 },
+          { id: 'D-003', name: 'Mike Ross', licenseCategory: 'Class A', licenseExpiryDate: '2023-01-01', status: 'Suspended', safetyScore: 75, totalTrips: 2, completedTrips: 1, completionRate: 50 },
+          { id: 'D-004', name: 'Elena Gilbert', licenseCategory: 'Class C', licenseExpiryDate: '2027-10-10', status: 'On Duty', safetyScore: 95, totalTrips: 30, completedTrips: 30, completionRate: 100 }
+        ];
+
+        // 3. Trips
+        const trips = [
+          { id: 'T-8821', vehicleId: 'V-002', driverId: 'D-001', cargoWeightKg: 500, origin: 'Mumbai', destination: 'Pune', revenue: 15000, startOdometerKm: 11500, status: 'Dispatched', dispatchDate: new Date().toISOString() },
+          { id: 'T-8820', vehicleId: 'V-001', driverId: 'D-002', cargoWeightKg: 12000, origin: 'Delhi', destination: 'Agra', revenue: 45000, startOdometerKm: 44000, status: 'Completed', dispatchDate: '2024-03-20', completionDate: '2024-03-21' }
+        ];
+
+        // 4. Maintenance
+        const maintenance = [
+          { id: 'M-321', vehicleId: 'V-003', serviceType: 'Engine Overhaul', cost: 15000, date: '2024-03-24', status: 'New', notes: 'Unusual noise reported' }
+        ];
+
+        // 5. Financials
+        const fuel = [
+          { id: 'F-001', vehicleId: 'V-001', liters: 120, cost: 10800, date: '2024-03-22', odometerKm: 44800 },
+          { id: 'F-002', vehicleId: 'V-002', liters: 45, cost: 4050, date: '2024-03-23', odometerKm: 11950 }
+        ];
+
+        const expenses = [
+          { id: 'E-001', vehicleId: 'V-001', description: 'NH4 Tolls', amount: 1200, date: '2024-03-22', category: 'Tolls' },
+          { id: 'E-002', vehicleId: 'V-002', description: 'Parking - Warehouse B', amount: 500, date: '2024-03-23', category: 'Parking' }
+        ];
+
+        // Push all data
         await Promise.all([
-          addDocumentNonBlocking(vehiclesRef, v1),
-          addDocumentNonBlocking(vehiclesRef, v2),
-          addDocumentNonBlocking(vehiclesRef, v3)
+          ...vehicles.map(v => addDocumentNonBlocking(vehiclesRef, v)),
+          ...drivers.map(d => addDocumentNonBlocking(driversRef, d)),
+          ...trips.map(t => addDocumentNonBlocking(tripsRef, t)),
+          ...maintenance.map(m => addDocumentNonBlocking(maintenanceRef, m)),
+          ...fuel.map(f => addDocumentNonBlocking(fuelRef, f)),
+          ...expenses.map(e => addDocumentNonBlocking(expenseRef, e))
         ]);
 
-        // Drivers
-        const d1 = { id: 'D-001', name: 'John Doe', licenseCategory: 'Class A', licenseExpiryDate: '2025-12-01', status: 'On Trip', safetyScore: 98, totalTrips: 45, completedTrips: 44, completionRate: 97 };
-        const d2 = { id: 'D-002', name: 'Sarah Miller', licenseCategory: 'Class B', licenseExpiryDate: '2026-05-15', status: 'On Duty', safetyScore: 92, totalTrips: 12, completedTrips: 10, completionRate: 83 };
-        const d3 = { id: 'D-003', name: 'Mike Ross', licenseCategory: 'Class A', licenseExpiryDate: '2023-01-01', status: 'Suspended', safetyScore: 75, totalTrips: 2, completedTrips: 1, completionRate: 50 };
-        
-        await Promise.all([
-          addDocumentNonBlocking(driversRef, d1),
-          addDocumentNonBlocking(driversRef, d2),
-          addDocumentNonBlocking(driversRef, d3)
-        ]);
-
-        // Trips
-        const tripsRef = collection(db, 'trips');
-        await addDocumentNonBlocking(tripsRef, {
-          id: 'T-8821', vehicleId: 'V-002', driverId: 'D-001', cargoWeightKg: 500, origin: 'Mumbai', destination: 'Pune', revenue: 15000, startOdometerKm: 11500, status: 'Dispatched', dispatchDate: new Date().toISOString()
-        });
-
-        // Maintenance
-        const maintenanceRef = collection(db, 'maintenance_logs');
-        await addDocumentNonBlocking(maintenanceRef, {
-          id: 'M-321', vehicleId: 'V-003', serviceType: 'Engine Overhaul', cost: 15000, date: '2024-03-24', status: 'New', notes: 'Unusual noise reported'
-        });
-
-        toast({ title: "Demo Seeded", description: "Fresh logistics data injected into your system." });
+        toast({ title: "Demo Seeded", description: "Operational, Financial, and Personnel data injected." });
       } else {
         toast({ title: "Data Exists", description: "Your fleet already has records." });
       }

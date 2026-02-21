@@ -1,71 +1,78 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { 
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Download, Filter, TrendingUp, Fuel, BarChart3, Receipt } from 'lucide-react';
-
-const kpis = [
-  { 
-    title: "Total Fuel Cost", 
-    value: "Rs. 2.6 L", 
-    icon: Fuel,
-    color: "text-[#16A34A]",
-    bgColor: "bg-[#16A34A]/5",
-    borderColor: "border-[#16A34A]/20"
-  },
-  { 
-    title: "Fleet ROI", 
-    value: "+ 12.5%", 
-    icon: TrendingUp,
-    color: "text-primary",
-    bgColor: "bg-primary/5",
-    borderColor: "border-primary/20"
-  },
-  { 
-    title: "Utilization Rate", 
-    value: "82%", 
-    icon: BarChart3,
-    color: "text-emerald-600",
-    bgColor: "bg-emerald-50",
-    borderColor: "border-emerald-100"
-  }
-];
-
-const fuelEfficiencyData = [
-  { month: 'Jan', value: 5 },
-  { month: 'Feb', value: 25 },
-  { month: 'Mar', value: 45 },
-  { month: 'Apr', value: 15 },
-  { month: 'May', value: 35 },
-  { month: 'Jun', value: 55 },
-  { month: 'Jul', value: 75 },
-  { month: 'Aug', value: 85 },
-  { month: 'Sep', value: 95 },
-];
-
-const costliestVehiclesData = [
-  { name: 'VAN-03', cost: 12 },
-  { name: 'TRK-01', cost: 22 },
-  { name: 'TRK-04', cost: 45 },
-  { name: 'TRK-02', cost: 82 },
-  { name: 'TRK-05', cost: 110 },
-];
-
-const financialSummary = [
-  { month: 'Jan', revenue: 17, fuel: 6, maintenance: 2, profit: 9 },
-  { month: 'Feb', revenue: 19, fuel: 5.5, maintenance: 1.5, profit: 12 },
-  { month: 'Mar', revenue: 22, fuel: 7, maintenance: 3, profit: 12 },
-  { month: 'Apr', revenue: 15, fuel: 4.2, maintenance: 2.1, profit: 8.7 },
-  { month: 'May', revenue: 25, fuel: 8, maintenance: 4, profit: 13 },
-];
+import { Download, Filter, TrendingUp, Fuel, BarChart3, Receipt, Loader2 } from 'lucide-react';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
 export default function AnalyticsPage() {
+  const db = useFirestore();
+  const fuelRef = useMemoFirebase(() => collection(db, 'fuel_logs'), [db]);
+  const expenseRef = useMemoFirebase(() => collection(db, 'expenses'));
+  const tripRef = useMemoFirebase(() => collection(db, 'trips'));
+
+  const { data: fuelLogs, isLoading: fLoading } = useCollection(fuelRef);
+  const { data: expenses, isLoading: eLoading } = useCollection(expenseRef);
+  const { data: trips, isLoading: tLoading } = useCollection(tripRef);
+
+  const stats = useMemo(() => {
+    const totalFuel = fuelLogs?.reduce((acc, curr) => acc + (Number(curr.cost) || 0), 0) || 0;
+    const totalRevenue = trips?.reduce((acc, curr) => acc + (Number(curr.revenue) || 0), 0) || 0;
+    const totalExpense = expenses?.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
+    
+    const profit = totalRevenue - (totalFuel + totalExpense);
+    const roi = totalRevenue > 0 ? (profit / (totalFuel + totalExpense)) * 100 : 0;
+
+    return [
+      { 
+        title: "Total Fuel Cost", 
+        value: `Rs. ${(totalFuel / 1000).toFixed(1)}k`, 
+        icon: Fuel,
+        color: "text-[#16A34A]",
+        bgColor: "bg-[#16A34A]/5",
+        borderColor: "border-[#16A34A]/20"
+      },
+      { 
+        title: "Fleet ROI", 
+        value: `${roi > 0 ? '+' : ''}${roi.toFixed(1)}%`, 
+        icon: TrendingUp,
+        color: "text-primary",
+        bgColor: "bg-primary/5",
+        borderColor: "border-primary/20"
+      },
+      { 
+        title: "Net Profit", 
+        value: `Rs. ${(profit / 1000).toFixed(1)}k`, 
+        icon: BarChart3,
+        color: "text-emerald-600",
+        bgColor: "bg-emerald-50",
+        borderColor: "border-emerald-100"
+      }
+    ];
+  }, [fuelLogs, expenses, trips]);
+
+  const isLoading = fLoading || eLoading || tLoading;
+
+  // Visual placeholders for charts (matching the seeded data theme)
+  const fuelEfficiencyData = [
+    { month: 'Jan', value: 5 }, { month: 'Feb', value: 7 }, { month: 'Mar', value: 6.5 },
+    { month: 'Apr', value: 8 }, { month: 'May', value: 9 }, { month: 'Jun', value: 8.5 }
+  ];
+
+  const costliestVehiclesData = [
+    { name: 'V-001', cost: 12000 },
+    { name: 'V-002', cost: 4500 },
+    { name: 'V-003', cost: 15000 },
+    { name: 'V-004', cost: 0 }
+  ];
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -83,9 +90,8 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* KPI Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {kpis.map((kpi, i) => (
+        {stats.map((kpi, i) => (
           <Card key={i} className={`border-2 ${kpi.borderColor} shadow-sm hover:shadow-md transition-all overflow-hidden bg-white rounded-2xl`}>
             <CardContent className="p-8 flex flex-col items-center text-center space-y-4">
               <div className={`p-4 rounded-2xl ${kpi.bgColor} ${kpi.color}`}>
@@ -93,14 +99,15 @@ export default function AnalyticsPage() {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest">{kpi.title}</h3>
-                <p className={`text-3xl font-black font-headline mt-1 ${kpi.color}`}>{kpi.value}</p>
+                <p className={`text-3xl font-black font-headline mt-1 ${kpi.color}`}>
+                  {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : kpi.value}
+                </p>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white">
           <CardHeader className="border-b bg-slate-50/30">
@@ -123,7 +130,6 @@ export default function AnalyticsPage() {
                   stroke="hsl(var(--primary))" 
                   strokeWidth={4} 
                   dot={{ r: 6, fill: 'hsl(var(--primary))', strokeWidth: 2, stroke: '#fff' }}
-                  activeDot={{ r: 8 }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -133,7 +139,7 @@ export default function AnalyticsPage() {
         <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white">
           <CardHeader className="border-b bg-slate-50/30">
             <CardTitle className="text-xl font-bold font-headline flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-[#16A34A]" /> Top 5 Costliest Vehicles
+              <BarChart3 className="w-5 h-5 text-[#16A34A]" /> Asset Maintenance Costs
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6 h-[350px]">
@@ -148,7 +154,7 @@ export default function AnalyticsPage() {
                 />
                 <Bar 
                   dataKey="cost" 
-                  fill="#0F172A" 
+                  fill="#1E40AF" 
                   radius={[6, 6, 0, 0]} 
                   barSize={40}
                 />
@@ -158,37 +164,38 @@ export default function AnalyticsPage() {
         </Card>
       </div>
 
-      {/* Financial Summary Section */}
       <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white">
         <CardHeader className="border-b bg-[#1E40AF]/5 flex flex-col items-center justify-center py-8">
           <div className="bg-[#1E40AF] text-white px-6 py-2 rounded-full font-bold shadow-lg flex items-center gap-2">
             <Receipt className="w-4 h-4" />
-            Financial Summary of Month
+            Active Fleet Ledger (Fuel & Expense)
           </div>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader className="bg-white border-b-2">
               <TableRow className="border-none hover:bg-transparent">
-                <TableHead className="h-16 pl-8 text-sm font-black uppercase text-[#FF69B4] tracking-tighter">Month</TableHead>
-                <TableHead className="h-16 text-sm font-black uppercase text-[#FF69B4] tracking-tighter">Revenue</TableHead>
-                <TableHead className="h-16 text-sm font-black uppercase text-[#FF69B4] tracking-tighter">Fuel Cost</TableHead>
-                <TableHead className="h-16 text-sm font-black uppercase text-[#FF69B4] tracking-tighter">Maintenance</TableHead>
-                <TableHead className="h-16 pr-8 text-right text-sm font-black uppercase text-[#FF69B4] tracking-tighter">Net Profit</TableHead>
+                <TableHead className="h-16 pl-8 text-sm font-black uppercase text-[#FF69B4] tracking-tighter">Asset</TableHead>
+                <TableHead className="h-16 text-sm font-black uppercase text-[#FF69B4] tracking-tighter">Date</TableHead>
+                <TableHead className="h-16 text-sm font-black uppercase text-[#FF69B4] tracking-tighter">Category</TableHead>
+                <TableHead className="h-16 pr-8 text-right text-sm font-black uppercase text-[#FF69B4] tracking-tighter">Amount</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {financialSummary.map((item) => (
-                <TableRow key={item.month} className="h-20 border-slate-100 hover:bg-slate-50 transition-colors">
-                  <TableCell className="pl-8 font-bold text-slate-900 text-lg">{item.month}</TableCell>
-                  <TableCell className="font-bold text-slate-700 text-lg">Rs. {item.revenue}L</TableCell>
-                  <TableCell className="font-bold text-slate-700 text-lg">Rs. {item.fuel}L</TableCell>
-                  <TableCell className="font-bold text-slate-700 text-lg">Rs. {item.maintenance}L</TableCell>
-                  <TableCell className="pr-8 text-right font-black text-[#16A34A] text-xl">
-                    Rs. {item.profit}L
-                  </TableCell>
-                </TableRow>
-              ))}
+              {isLoading ? (
+                <TableRow><TableCell colSpan={4} className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+              ) : (
+                [...(fuelLogs || []), ...(expenses || [])].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((item: any) => (
+                  <TableRow key={item.id} className="h-16 border-slate-100 hover:bg-slate-50 transition-colors">
+                    <TableCell className="pl-8 font-bold text-slate-900">{item.vehicleId}</TableCell>
+                    <TableCell className="text-slate-600">{item.date}</TableCell>
+                    <TableCell className="font-medium text-slate-700">{item.category || (item.liters ? 'Fuel' : 'General')}</TableCell>
+                    <TableCell className="pr-8 text-right font-black text-[#16A34A]">
+                      Rs. {(item.cost || item.amount).toLocaleString()}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
